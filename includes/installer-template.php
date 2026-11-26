@@ -3,7 +3,9 @@
 @set_time_limit(0);
 @ini_set('memory_limit', '512M');
 $base = __DIR__;
-$manifestFile = $base . '/ua-backup.json';
+$privateDir = $base . '/.ua-backup-private';
+$manifestFile = is_file($privateDir . '/ua-backup.json') ? $privateDir . '/ua-backup.json' : $base . '/ua-backup.json';
+$databaseFile = is_file($privateDir . '/database.sql') ? $privateDir . '/database.sql' : $base . '/database.sql';
 $manifest = is_file($manifestFile) ? json_decode((string) file_get_contents($manifestFile), true) : [];
 $manifest = is_array($manifest) ? $manifest : [];
 $message = '';
@@ -156,7 +158,7 @@ function uab_remove_tree($dir) {
     @rmdir($dir);
 }
 function uab_prepare_site_files($base, $token) {
-    $nestedZip = $base . '/site-files.zip';
+    $nestedZip = is_file($privateDir . '/site-files.zip') ? $privateDir . '/site-files.zip' : $base . '/site-files.zip';
     if (is_file($nestedZip)) {
         $target = sys_get_temp_dir() . '/uab-files-' . hash('sha256', $token);
         uab_remove_tree($target);
@@ -258,6 +260,7 @@ function uab_cleanup($base, $token) {
         foreach ($it as $item) { if ($item->isDir() && !$item->isLink()) @rmdir($item->getPathname()); else @unlink($item->getPathname()); }
         @rmdir($dir);
     }
+    uab_remove_tree($base . '/.ua-backup-private');
     uab_remove_tree(sys_get_temp_dir() . '/uab-files-' . hash('sha256', $token));
 }
 
