@@ -337,7 +337,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             uab_copy_site_files($base . '/site-files', $base, $token);
             uab_set_progress($token, 99, 'Оновлення конфігурації WordPress');
             uab_update_config($base . '/wp-config.php', $db['name'], $db['user'], $db['pass'], $db['host'], $db['prefix']);
-            session_start();
+            if (session_status() !== PHP_SESSION_ACTIVE) session_start();
             unset($_SESSION['uab_db'], $_SESSION['uab_stage']);
             $_SESSION['uab_done_url'] = $db['url'];
             uab_cleanup($base);
