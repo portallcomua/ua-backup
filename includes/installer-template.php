@@ -249,7 +249,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $mysqli->set_charset('utf8mb4');
             $admins = uab_admins($mysqli, $db['prefix']);
             $selected = (int) ($_POST['admin_id'] ?? 0);
-            $newLogin = sanitize_user((string) ($_POST['new_admin_login'] ?? ''), true);
+            $newLogin = preg_replace('/[^a-zA-Z0-9_.@-]/', '', trim((string) ($_POST['new_admin_login'] ?? '')));
             $newPass = (string) ($_POST['new_admin_pass'] ?? '');
             if ($newLogin !== '' || $newPass !== '') {
                 if ($newLogin === '' || strlen($newPass) < 8) uab_stop('Для нового адміністратора вкажіть логін і пароль не коротший за 8 символів.');
