@@ -21,6 +21,10 @@ class UA_Backup_Engine {
         set_transient($key, ['percent' => max(0, min(100, (int) $percent)), 'message' => (string) $message], 30 * MINUTE_IN_SECONDS);
     }
 
+    public static function reset_progress(): void {
+        self::update_progress(0, 'Підготовка резервної копії');
+    }
+
     public static function progress(): array {
         $key = 'uab_progress_' . get_current_user_id();
         $data = get_transient($key);
