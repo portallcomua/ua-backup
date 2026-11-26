@@ -2,6 +2,7 @@
 defined('ABSPATH') || exit;
 
 class UA_Backup_Engine {
+    private static string $active_run_id = '';
     public static function backup_dir(): string {
         return WP_CONTENT_DIR . '/ua-backups';
     }
@@ -18,17 +19,22 @@ class UA_Backup_Engine {
 
     private static function update_progress($percent, $message): void {
         $key = 'uab_progress_' . (function_exists('get_current_user_id') ? get_current_user_id() : 0);
-        set_transient($key, ['percent' => max(0, min(100, (int) $percent)), 'message' => (string) $message], 30 * MINUTE_IN_SECONDS);
+        set_transient($key, ['run_id' => self::$active_run_id, 'percent' => max(0, min(100, (int) $percent)), 'message' => (string) $message], 30 * MINUTE_IN_SECONDS);
     }
 
-    public static function reset_progress(): void {
+    public static function reset_progress(string $runId = ''): void {
+        self::$active_run_id = preg_replace('/[^a-f0-9]/i', '', $runId);
         self::update_progress(0, 'Підготовка резервної копії');
     }
 
-    public static function progress(): array {
+    public static function progress(string $runId = ''): array {
         $key = 'uab_progress_' . get_current_user_id();
         $data = get_transient($key);
-        return is_array($data) ? $data : ['percent' => 0, 'message' => 'Очікування'];
+        if (!is_array($data)) return ['run_id' => $runId, 'percent' => 0, 'message' => 'Очікування'];
+        if ($runId !== '' && (!isset($data['run_id']) || !hash_equals((string) $data['run_id'], $runId))) {
+            return ['run_id' => $runId, 'percent' => 0, 'message' => 'Запуск резервного копіювання'];
+        }
+        return $data;
     }
 
     public static function create_backup(): array {
