@@ -90,7 +90,6 @@ class UA_Backup_Engine {
         } finally {
             if ($tmpSql && is_file($tmpSql)) @unlink($tmpSql);
             if (is_resource($lockHandle)) { flock($lockHandle, LOCK_UN); fclose($lockHandle); }
-            if (is_file($lock)) @unlink($lock);
         }
     }
 
