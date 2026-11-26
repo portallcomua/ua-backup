@@ -158,7 +158,8 @@ function uab_remove_tree($dir) {
     @rmdir($dir);
 }
 function uab_prepare_site_files($base, $token) {
-    $nestedZip = is_file($privateDir . '/site-files.zip') ? $privateDir . '/site-files.zip' : $base . '/site-files.zip';
+    $privateNestedZip = $base . '/.ua-backup-private/site-files.zip';
+    $nestedZip = is_file($privateNestedZip) ? $privateNestedZip : $base . '/site-files.zip';
     if (is_file($nestedZip)) {
         $target = sys_get_temp_dir() . '/uab-files-' . hash('sha256', $token);
         uab_remove_tree($target);
