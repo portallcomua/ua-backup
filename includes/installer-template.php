@@ -291,7 +291,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($action === 'test') {
                 $tables = $mysqli->query('SHOW TABLES');
                 if ($tables && $tables->num_rows > 0) uab_stop('У вибраній базі вже є таблиці. Для безпечного відновлення використайте порожню базу даних.');
-                $_SESSION['uab_db'] = $db;
+                // Не зберігаємо пароль після перевірки: поле на наступному кроці має бути порожнім.
+                $sessionDb = $db;
+                $sessionDb['pass'] = '';
+                $_SESSION['uab_db'] = $sessionDb;
                 $_SESSION['uab_stage'] = 'tested';
                 $stage = 'tested';
                 $message = 'Підключення успішне. База даних порожня та готова до відновлення.';
@@ -342,6 +345,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     if (!$mysqli->query("UPDATE " . $optionsTable . " SET option_name='" . $newRoles . "' WHERE option_name='" . $oldRoles . "'")) uab_stop('Не вдалося оновити налаштування ролей: ' . $mysqli->error);
                 }
                 session_start();
+                // Пароль потрібен далі для повторного підключення та запису wp-config.php.
+                // Він зберігається лише в сесії сервера і ніколи не повертається у HTML-поле.
                 $_SESSION['uab_db'] = $db;
                 $_SESSION['uab_stage'] = 'admins';
                 $stage = 'admins';
@@ -446,7 +451,7 @@ if ($stage === 'admins' && isset($_SESSION['uab_db'])) {
 <input type="hidden" name="installer_token" value="<?php echo uab_h($installerToken); ?>">
 <?php if ($stage !== 'admins'): ?>
 <h2>Підключення до бази даних</h2><p class="hint">Спочатку перевіряється підключення. Відновлення дозволене лише в порожню базу даних, щоб не пошкодити наявний сайт.</p>
-<div class="grid"><div><label>Хост БД</label><input name="db_host" value="<?php echo uab_h($dbForm['host']); ?>" required></div><div><label>Назва БД</label><input name="db_name" value="<?php echo uab_h($dbForm['name']); ?>" required></div><div><label>Користувач БД</label><input name="db_user" value="<?php echo uab_h($dbForm['user']); ?>" required></div><div><label>Пароль БД</label><input type="password" name="db_pass" value="<?php echo uab_h($dbForm['pass']); ?>"></div><div><label>Префікс таблиць</label><input name="db_prefix" value="<?php echo uab_h($dbForm['prefix']); ?>" required></div><div><label>Нова адреса сайту</label><input name="site_url" value="<?php echo uab_h($dbForm['url']); ?>" placeholder="https://example.com" required></div></div>
+<div class="grid"><div><label>Хост БД</label><input name="db_host" value="<?php echo uab_h($dbForm['host']); ?>" required></div><div><label>Назва БД</label><input name="db_name" value="<?php echo uab_h($dbForm['name']); ?>" required></div><div><label>Користувач БД</label><input name="db_user" value="<?php echo uab_h($dbForm['user']); ?>" required></div><div><label>Пароль БД</label><input type="password" name="db_pass" value="" autocomplete="new-password" autocapitalize="off" spellcheck="false"></div><div><label>Префікс таблиць</label><input name="db_prefix" value="<?php echo uab_h($dbForm['prefix']); ?>" required></div><div><label>Нова адреса сайту</label><input name="site_url" value="<?php echo uab_h($dbForm['url']); ?>" placeholder="https://example.com" required></div></div>
 <button class="button" name="uab_action" value="test">Перевірити підключення</button>
 <?php if ($stage === 'tested'): ?><button class="button" name="uab_action" value="import" onclick="return confirm('Почати відновлення бази даних?')">Відновити базу даних</button><?php endif; ?>
 <?php else: ?>
@@ -484,7 +489,13 @@ if ($stage === 'admins' && isset($_SESSION['uab_db'])) {
    }
   })();
   try{
-   const response=await fetch(location.href,{method:'POST',body:new FormData(form)});
+   const payload=new FormData(form);
+   // FormData(form) не додає кнопку submit, тому сервер не отримував uab_action
+   // і помилково показував «Невідома дія інсталятора».
+   if(event.submitter && event.submitter.name){
+    payload.set(event.submitter.name,event.submitter.value);
+   }
+   const response=await fetch(location.href,{method:'POST',body:payload});
    const html=await response.text();
    running=false;
    document.open();document.write(html);document.close();
