@@ -456,11 +456,11 @@ if ($stage === 'admins' && isset($_SESSION['uab_db'])) {
 <button class="button" name="uab_action" value="test">Перевірити підключення</button>
 <?php if ($stage === 'tested'): ?><button class="button" name="uab_action" value="import" onclick="return confirm('Почати відновлення бази даних?')">Відновити базу даних</button><?php endif; ?>
 <?php else: ?>
-<h2>Адміністратор сайта</h2><p class="hint">Виберіть адміністратора з резервної копії. Якщо пароль не змінювати, він залишиться таким, як на старому сайті.</p>
+<h2>Адміністратор сайта</h2><p class="hint">За замовчуванням буде використано адміністратора з резервної копії. Зміну пароля та створення додаткового адміністратора можна пропустити.</p>
 <?php if ($adminList): ?>
 <p class="hint">Виберіть наявного адміністратора. Якщо залишити пароль нижче порожнім, його старий пароль збережеться.</p>
 <?php foreach ($adminList as $index => $admin): ?><label class="admin"><input type="radio" name="admin_id" value="<?php echo (int) $admin['ID']; ?>" <?php echo $index === 0 ? 'checked' : ''; ?> required> <?php echo uab_h($admin['user_login'] . ' — ' . $admin['user_email']); ?></label><?php endforeach; ?>
-<label for="existing_admin_pass">Змінити пароль вибраного адміністратора (необов’язково)</label><div class="password-field"><input id="existing_admin_pass" type="password" name="existing_admin_pass" minlength="8" autocomplete="new-password"><button type="button" class="toggle-password" aria-label="Показати пароль" aria-pressed="false">Показати</button></div>
+<label for="existing_admin_pass">Змінити пароль вибраного адміністратора (необов’язково)</label><div class="password-field"><input id="existing_admin_pass" type="password" name="existing_admin_pass" minlength="8" autocomplete="new-password"><button type="button" class="toggle-password" aria-label="Показати пароль" aria-pressed="false">👁</button></div>
 <?php else: ?><p class="hint">У резервній копії адміністраторів не знайдено. Для входу потрібно створити нового адміністратора.</p><?php endif; ?>
 <div class="admin-create">
 <label class="admin"><input type="checkbox" id="create_new_admin" name="create_new_admin" value="1" <?php echo $adminList ? '' : 'required'; ?>> Створити окремого нового адміністратора</label>
@@ -499,7 +499,7 @@ if ($stage === 'admins' && isset($_SESSION['uab_db'])) {
    if(!input)return;
    const show=input.type==='password';
    input.type=show?'text':'password';
-   button.textContent=show?'Приховати':'Показати';
+   button.textContent=show?'🙈':'👁';
    button.setAttribute('aria-label',show?'Приховати пароль':'Показати пароль');
    button.setAttribute('aria-pressed',show?'true':'false');
   });
