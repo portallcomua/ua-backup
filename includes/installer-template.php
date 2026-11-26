@@ -2,19 +2,36 @@
 /* UA Backup standalone installer */
 @set_time_limit(0);
 @ini_set('memory_limit', '512M');
-session_start();
-
 $base = __DIR__;
 $manifestFile = $base . '/ua-backup.json';
 $manifest = is_file($manifestFile) ? json_decode((string) file_get_contents($manifestFile), true) : [];
 $manifest = is_array($manifest) ? $manifest : [];
 $message = '';
 $error = '';
-$stage = isset($_SESSION['uab_stage']) ? (string) $_SESSION['uab_stage'] : 'start';
 $tokenHash = isset($manifest['installer_token_hash']) ? (string) $manifest['installer_token_hash'] : '';
+if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['uab_progress'])) {
+    $progressToken = (string) ($_GET['token'] ?? '');
+    if (!$tokenHash || !hash_equals($tokenHash, hash('sha256', $progressToken))) {
+        http_response_code(403);
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode(['percent' => 0, 'message' => 'Невірний ключ']);
+        exit;
+    }
+    $progressFile = sys_get_temp_dir() . '/uab-restore-' . hash('sha256', $progressToken) . '.json';
+    header('Content-Type: application/json; charset=utf-8');
+    header('Cache-Control: no-store, no-cache, must-revalidate');
+    echo is_file($progressFile) ? file_get_contents($progressFile) : json_encode(['percent' => 0, 'message' => 'Підготовка відновлення']);
+    exit;
+}
+session_start();
+$stage = isset($_SESSION['uab_stage']) ? (string) $_SESSION['uab_stage'] : 'start';
 $tokenOk = false;
 
 function uab_h($value) { return htmlspecialchars((string) $value, ENT_QUOTES, 'UTF-8'); }
+function uab_set_progress($token, $percent, $message) {
+    $file = sys_get_temp_dir() . '/uab-restore-' . hash('sha256', $token) . '.json';
+    file_put_contents($file, json_encode(['percent' => max(0, min(100, (int) $percent)), 'message' => (string) $message]), LOCK_EX);
+}
 function uab_stop($message) { throw new RuntimeException($message); }
 function uab_ident($value) {
     if (!preg_match('/^[A-Za-z0-9_]+$/', $value)) uab_stop('Некоректний префікс таблиць.');
@@ -71,7 +88,11 @@ function uab_sql_statements($file) {
         if ($statement !== '') yield $statement;
     } finally { fclose($fh); }
 }
-function uab_import_sql($mysqli, $file) {
+function uab_import_sql($mysqli, $file, $token) {
+    uab_set_progress($token, 3, 'Аналіз SQL-файлу');
+    $total = 0;
+    foreach (uab_sql_statements($file) as $unused) $total++;
+    if ($total < 1) uab_stop('Файл бази даних порожній або не містить команд.');
     $count = 0;
     foreach (uab_sql_statements($file) as $sql) {
         if (stripos($sql, 'SET NAMES') === 0 || stripos($sql, 'SET FOREIGN_KEY_CHECKS') === 0) {
@@ -80,8 +101,12 @@ function uab_import_sql($mysqli, $file) {
         }
         if (!$mysqli->query($sql)) uab_stop('Помилка імпорту бази даних: ' . $mysqli->error);
         $count++;
+        if ($count % 10 === 0 || $count === $total) {
+            $percent = 5 + (int) floor(68 * $count / $total);
+            uab_set_progress($token, $percent, 'Імпорт бази даних: ' . $count . ' із ' . $total . ' SQL-команд');
+        }
     }
-    if ($count < 1) uab_stop('Файл бази даних порожній або не містить команд.');
+    uab_set_progress($token, 74, 'Базу даних імпортовано');
 }
 function uab_replace_recursive($value, $old, $new) {
     if (is_string($value)) return str_replace($old, $new, $value);
@@ -121,12 +146,16 @@ function uab_rewrite_urls($mysqli, $prefix, $oldUrl, $newUrl) {
     uab_replace_serialized_column($mysqli, $options, 'option_id', 'option_value', $oldUrl, $newUrl);
     uab_replace_serialized_column($mysqli, $meta, 'meta_id', 'meta_value', $oldUrl, $newUrl);
 }
-function uab_copy_site_files($source, $target) {
+function uab_copy_site_files($source, $target, $token) {
     if (!is_dir($source)) uab_stop('В архіві відсутня папка site-files.');
     $sourceReal = realpath($source);
     $targetReal = realpath($target);
     if (!$sourceReal || !$targetReal) uab_stop('Не вдалося визначити папки відновлення.');
+    $counter = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($sourceReal, FilesystemIterator::SKIP_DOTS), RecursiveIteratorIterator::LEAVES_ONLY);
+    $totalFiles = 0;
+    foreach ($counter as $candidate) if ($candidate->isFile() && !$candidate->isLink()) $totalFiles++;
     $it = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($sourceReal, FilesystemIterator::SKIP_DOTS), RecursiveIteratorIterator::SELF_FIRST);
+    $copiedFiles = 0;
     foreach ($it as $item) {
         if ($item->isLink()) continue;
         $relative = substr($item->getPathname(), strlen($sourceReal) + 1);
@@ -139,6 +168,11 @@ function uab_copy_site_files($source, $target) {
         } else {
             if (!is_dir(dirname($dest)) && !mkdir(dirname($dest), 0755, true) && !is_dir(dirname($dest))) uab_stop('Не вдалося створити папку для файлу.');
             if (!copy($item->getPathname(), $dest)) uab_stop('Не вдалося відновити файл: ' . $relative);
+            $copiedFiles++;
+            if ($copiedFiles % 20 === 0 || $copiedFiles === $totalFiles) {
+                $percent = $totalFiles > 0 ? 80 + (int) floor(18 * $copiedFiles / $totalFiles) : 98;
+                uab_set_progress($token, $percent, 'Відновлення файлів: ' . $copiedFiles . ' із ' . $totalFiles);
+            }
         }
     }
 }
@@ -214,7 +248,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $tables = $mysqli->query('SHOW TABLES');
                 if ($tables && $tables->num_rows > 0) uab_stop('База даних не порожня. Зупинено, щоб не перезаписати чужі таблиці.');
                 try {
-                    uab_import_sql($mysqli, $base . '/database.sql');
+                    session_write_close();
+                uab_import_sql($mysqli, $base . '/database.sql', $token);
                 } catch (Throwable $importError) {
                     $cleanupPrefixes = array_unique([(string) ($manifest['table_prefix'] ?? 'wp_'), $db['prefix']]);
                     $existing = $mysqli->query('SHOW TABLES');
@@ -244,6 +279,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     }
                     foreach ($renames as $sql) if (!$mysqli->query($sql)) uab_stop('Не вдалося змінити префікс таблиць: ' . $mysqli->error);
                 }
+                session_start();
                 $_SESSION['uab_db'] = $db;
                 $_SESSION['uab_stage'] = 'admins';
                 $stage = 'admins';
@@ -298,10 +334,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             uab_rewrite_urls($mysqli, $db['prefix'], rtrim((string) ($manifest['home_url'] ?? $manifest['site_url'] ?? ''), '/'), $db['url']);
             $mysqli->close();
             uab_copy_site_files($base . '/site-files', $base);
+            uab_set_progress($token, 99, 'Оновлення конфігурації WordPress');
             uab_update_config($base . '/wp-config.php', $db['name'], $db['user'], $db['pass'], $db['host'], $db['prefix']);
+            session_start();
             unset($_SESSION['uab_db'], $_SESSION['uab_stage']);
             $_SESSION['uab_done_url'] = $db['url'];
             uab_cleanup($base);
+            uab_set_progress($token, 100, 'Відновлення завершено успішно');
             $stage = 'done';
             $message = 'Готово! Сайт відновлено. Службові файли інсталятора очищено.';
         } else {
@@ -309,6 +348,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     } catch (Throwable $e) {
         $error = $e->getMessage();
+        if (!empty($token)) uab_set_progress($token, 0, 'Помилка: ' . $error);
+        if (session_status() !== PHP_SESSION_ACTIVE) @session_start();
     }
 }
 
@@ -331,6 +372,9 @@ if ($stage === 'admins' && isset($_SESSION['uab_db'])) {
 <?php if ($message): ?><div class="msg"><?php echo uab_h($message); ?></div><?php endif; ?>
 <?php if ($error): ?><div class="err"><?php echo uab_h($error); ?></div><?php endif; ?>
 <?php if ($stage !== 'done'): ?>
+<div id="uab-restore-progress" style="display:none;margin:18px 0;padding:14px;background:#f1f5f9;border-radius:10px">
+<div style="height:18px;background:#dbe3ee;border-radius:20px;overflow:hidden"><div id="uab-restore-bar" style="height:100%;width:0;background:#1769d2;transition:width .25s"></div></div>
+<p id="uab-restore-label" class="hint">Підготовка відновлення...</p></div>
 <form method="post">
 <label>Одноразовий ключ інсталятора</label><input type="password" name="installer_token" required autocomplete="off" placeholder="Вставте ключ із повідомлення після створення бекапа">
 <?php if ($stage !== 'admins'): ?>
@@ -346,4 +390,41 @@ if ($stage === 'admins' && isset($_SESSION['uab_db'])) {
 <button class="button" name="uab_action" value="finish" onclick="return confirm('Завершити відновлення сайту?')">Завершити встановлення</button>
 <?php endif; ?></form>
 <?php else: ?><div class="done"><h2>Сайт відновлено</h2><p>Відкрийте сайт або увійдіть до панелі керування.</p><a class="button" href="<?php echo uab_h($_SESSION['uab_done_url'] ?? '/'); ?>">Перейти на сайт</a><a class="button" href="<?php echo uab_h(rtrim((string) ($_SESSION['uab_done_url'] ?? ''), '/') . '/wp-admin/'); ?>">Відкрити адмінку</a></div><?php endif; ?>
-</main></body></html>
+</main>
+<script>
+(function(){
+ const form=document.querySelector('form');
+ if(!form)return;
+ form.addEventListener('submit',async function(event){
+  const action=event.submitter?event.submitter.value:'';
+  if(action!=='import'&&action!=='finish')return;
+  event.preventDefault();
+  const token=form.querySelector('[name="installer_token"]').value;
+  const panel=document.getElementById('uab-restore-progress');
+  const bar=document.getElementById('uab-restore-bar');
+  const label=document.getElementById('uab-restore-label');
+  panel.style.display='block';
+  let running=true;
+  const poll=(async function(){
+   while(running){
+    try{
+     const response=await fetch('?uab_progress=1&token='+encodeURIComponent(token),{cache:'no-store'});
+     const data=await response.json();
+     bar.style.width=(data.percent||0)+'%';
+     label.textContent=(data.percent||0)+'% — '+(data.message||'');
+    }catch(e){}
+    await new Promise(resolve=>setTimeout(resolve,500));
+   }
+  })();
+  try{
+   const response=await fetch(location.href,{method:'POST',body:new FormData(form)});
+   const html=await response.text();
+   running=false;
+   document.open();document.write(html);document.close();
+  }catch(e){
+   running=false;
+   label.textContent='Помилка з’єднання. Перевірте стан бази даних перед повторною спробою.';
+  }
+ });
+})();
+</script></body></html>
