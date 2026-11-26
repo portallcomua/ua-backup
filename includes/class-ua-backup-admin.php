@@ -15,7 +15,12 @@ class UA_Backup_Admin {
     public function page(): void {
         if (!current_user_can('manage_options')) return;
         $backups = UA_Backup_Engine::list_backups();
-        $notice = isset($_GET['uab_notice']) ? sanitize_text_field(wp_unslash($_GET['uab_notice'])) : '';
+        $notice = '';
+        if (isset($_GET['uab_done'])) {
+            $notice = (string) get_transient('uab_last_result_' . get_current_user_id());
+            delete_transient('uab_last_result_' . get_current_user_id());
+        }
+        if (!$notice && isset($_GET['uab_notice'])) $notice = sanitize_text_field(wp_unslash($_GET['uab_notice']));
         ?>
         <div class="wrap" style="max-width:1100px">
             <h1>UA Backup</h1>
@@ -119,7 +124,8 @@ class UA_Backup_Admin {
         try {
             $result = UA_Backup_Engine::create_backup();
             $message = 'Бекап створено: ' . $result['name'] . ' | Ключ інсталятора: ' . $result['installer_token'];
-            wp_send_json_success(['message' => $message, 'redirect' => add_query_arg('uab_notice', rawurlencode($message), admin_url('tools.php?page=ua-backup'))]);
+            set_transient('uab_last_result_' . get_current_user_id(), $message, 10 * MINUTE_IN_SECONDS);
+            wp_send_json_success(['message' => 'Бекап успішно створено.', 'redirect' => add_query_arg('uab_done', '1', admin_url('tools.php?page=ua-backup'))]);
         } catch (Throwable $e) {
             wp_send_json_error(['message' => $e->getMessage()], 500);
         }
@@ -129,7 +135,8 @@ class UA_Backup_Admin {
         check_admin_referer('uab_create');
         try { $result=UA_Backup_Engine::create_backup(); $message='Бекап створено: '.$result['name'].' | Ключ інсталятора: '.$result['installer_token']; }
         catch (Throwable $e) { $message='Помилка створення: '.$e->getMessage(); }
-        wp_safe_redirect(add_query_arg('uab_notice', rawurlencode($message), admin_url('tools.php?page=ua-backup'))); exit;
+        set_transient('uab_last_result_' . get_current_user_id(), $message, 10 * MINUTE_IN_SECONDS);
+        wp_safe_redirect(add_query_arg('uab_done', '1', admin_url('tools.php?page=ua-backup'))); exit;
     }
     public function download(): void {
         if (!current_user_can('manage_options')) wp_die('Недостатньо прав.');
