@@ -111,6 +111,7 @@ try {
         'installer_token' => $token,
         'uab_action' => 'finish',
         'admin_id' => '1',
+        'create_new_admin' => '1',
         'existing_admin_pass' => '',
         'new_admin_login' => 'newadmin',
         'new_admin_pass' => 'newadmin-password',
