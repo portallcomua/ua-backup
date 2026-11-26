@@ -1,5 +1,5 @@
 {
-  "version": "2.2.0",
+  "version": "2.2.1",
   "name": "UA Backup",
   "slug": "ua-backup",
   "author": "UAServer",
@@ -7,5 +7,5 @@
   "requires": "6.0",
   "tested": "6.8",
   "requires_php": "7.4",
-  "changelog": "2.2.0: Corrected backup progress so 100% appears only after the archive is verified and saved. Added plugin version display, automatic GitHub updates, and Ukrainian, English, Polish and German admin translations."
+  "changelog": "2.2.1: Clarified restore administrator choices, made creating an additional administrator optional, and added password visibility controls."
 }
