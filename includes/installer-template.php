@@ -146,6 +146,51 @@ function uab_rewrite_urls($mysqli, $prefix, $oldUrl, $newUrl) {
     uab_replace_serialized_column($mysqli, $options, 'option_id', 'option_value', $oldUrl, $newUrl);
     uab_replace_serialized_column($mysqli, $meta, 'meta_id', 'meta_value', $oldUrl, $newUrl);
 }
+function uab_remove_tree($dir) {
+    if (!is_dir($dir)) return;
+    $it = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($dir, FilesystemIterator::SKIP_DOTS), RecursiveIteratorIterator::CHILD_FIRST);
+    foreach ($it as $item) {
+        if ($item->isDir() && !$item->isLink()) @rmdir($item->getPathname());
+        else @unlink($item->getPathname());
+    }
+    @rmdir($dir);
+}
+function uab_prepare_site_files($base, $token) {
+    $nestedZip = $base . '/site-files.zip';
+    if (is_file($nestedZip)) {
+        $target = sys_get_temp_dir() . '/uab-files-' . hash('sha256', $token);
+        uab_remove_tree($target);
+        if (!mkdir($target, 0700, true) && !is_dir($target)) uab_stop('Не вдалося створити тимчасову папку для файлів сайту.');
+        $zip = new ZipArchive();
+        if ($zip->open($nestedZip, ZipArchive::CHECKCONS) !== true) uab_stop('Внутрішній архів файлів пошкоджений.');
+        for ($i = 0; $i < $zip->numFiles; $i++) {
+            $name = str_replace(chr(92), '/', (string) $zip->getNameIndex($i));
+            $parts = explode('/', $name);
+            if ($name === '' || $name[0] === '/' || preg_match('/^[A-Za-z]:/', $name) || strpos($name, "\0") !== false || in_array('..', $parts, true)) {
+                $zip->close();
+                uab_stop('У резервній копії виявлено небезпечний шлях.');
+            }
+            $opsys = 0;
+            $attributes = 0;
+            if ($zip->getExternalAttributesIndex($i, $opsys, $attributes)) {
+                $type = ($attributes >> 16) & 0170000;
+                if ($type === 0120000) {
+                    $zip->close();
+                    uab_stop('Резервна копія містить символічне посилання. Відновлення зупинено.');
+                }
+            }
+        }
+        if (!$zip->extractTo($target)) {
+            $zip->close();
+            uab_stop('Не вдалося розпакувати файли сайту.');
+        }
+        $zip->close();
+        return $target;
+    }
+    $legacy = $base . '/site-files';
+    if (is_dir($legacy)) return $legacy;
+    uab_stop('В архіві відсутній внутрішній архів файлів сайту.');
+}
 function uab_copy_site_files($source, $target, $token) {
     if (!is_dir($source)) uab_stop('В архіві відсутня папка site-files.');
     $sourceReal = realpath($source);
@@ -205,14 +250,15 @@ function uab_admins($mysqli, $prefix) {
     $result->free();
     return $items;
 }
-function uab_cleanup($base) {
-    foreach (['installer.php', 'database.sql', 'ua-backup.json'] as $name) if (is_file($base . '/' . $name)) @unlink($base . '/' . $name);
+function uab_cleanup($base, $token) {
+    foreach (['installer.php', 'database.sql', 'ua-backup.json', 'site-files.zip'] as $name) if (is_file($base . '/' . $name)) @unlink($base . '/' . $name);
     $dir = $base . '/site-files';
     if (is_dir($dir)) {
         $it = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($dir, FilesystemIterator::SKIP_DOTS), RecursiveIteratorIterator::CHILD_FIRST);
         foreach ($it as $item) { if ($item->isDir() && !$item->isLink()) @rmdir($item->getPathname()); else @unlink($item->getPathname()); }
         @rmdir($dir);
     }
+    uab_remove_tree(sys_get_temp_dir() . '/uab-files-' . hash('sha256', $token));
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -344,13 +390,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             uab_rewrite_urls($mysqli, $db['prefix'], rtrim((string) ($manifest['home_url'] ?? $manifest['site_url'] ?? ''), '/'), $db['url']);
             $mysqli->close();
             uab_set_progress($token, 79, 'Підготовка файлів сайту');
-            uab_copy_site_files($base . '/site-files', $base, $token);
+            $restoreFiles = uab_prepare_site_files($base, $token);
+            uab_copy_site_files($restoreFiles, $base, $token);
             uab_set_progress($token, 99, 'Оновлення конфігурації WordPress');
             uab_update_config($base . '/wp-config.php', $db['name'], $db['user'], $db['pass'], $db['host'], $db['prefix']);
             if (session_status() !== PHP_SESSION_ACTIVE) session_start();
             unset($_SESSION['uab_db'], $_SESSION['uab_stage']);
             $_SESSION['uab_done_url'] = $db['url'];
-            uab_cleanup($base);
+            uab_cleanup($base, $token);
             uab_set_progress($token, 100, 'Відновлення завершено успішно');
             $stage = 'done';
             $message = 'Готово! Сайт відновлено. Службові файли інсталятора очищено.';
