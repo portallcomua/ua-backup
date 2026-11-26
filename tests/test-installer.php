@@ -7,6 +7,7 @@ $dbPass = getenv('UAB_TEST_DB_PASS') ?: 'root';
 $port = random_int(18000, 24000);
 $root = sys_get_temp_dir() . '/uab-installer-' . bin2hex(random_bytes(5));
 mkdir($root, 0777, true);
+mkdir($root . '/.ua-backup-private', 0777, true);
 mkdir($root . '/fixture-files/wp-admin', 0777, true);
 $token = bin2hex(random_bytes(16));
 $oldUrl = 'https://old.example';
@@ -21,8 +22,8 @@ $manifest = [
     'table_prefix' => 'wp_',
     'installer_token_hash' => hash('sha256', $token),
 ];
-file_put_contents($root . '/ua-backup.json', json_encode($manifest));
-file_put_contents($root . '/database.sql', "
+file_put_contents($root . '/.ua-backup-private/ua-backup.json', json_encode($manifest));
+file_put_contents($root . '/.ua-backup-private/database.sql', "
 CREATE TABLE wp_options (option_id bigint unsigned NOT NULL AUTO_INCREMENT, option_name varchar(191) NOT NULL, option_value longtext NOT NULL, PRIMARY KEY (option_id), UNIQUE KEY option_name (option_name));
 INSERT INTO wp_options (option_name,option_value) VALUES ('siteurl','https://old.example'),('home','https://old.example'),('widget_test','" . addslashes(serialize(['link' => $oldUrl])) . "'),('wp_user_roles','a:1:{s:13:" . chr(34) . "administrator" . chr(34) . ";b:1;}');
 CREATE TABLE wp_users (ID bigint unsigned NOT NULL AUTO_INCREMENT, user_login varchar(60) NOT NULL, user_pass varchar(255) NOT NULL, user_nicename varchar(50) NOT NULL, user_email varchar(100) NOT NULL, user_url varchar(100) NOT NULL DEFAULT '', user_registered datetime NOT NULL, user_activation_key varchar(255) NOT NULL DEFAULT '', user_status int NOT NULL DEFAULT 0, display_name varchar(250) NOT NULL, PRIMARY KEY (ID), KEY user_login (user_login));
@@ -44,7 +45,7 @@ file_put_contents($root . '/fixture-files/wp-config.php', $config);
 file_put_contents($root . '/fixture-files/index.php', '<?php echo "restored";');
 file_put_contents($root . '/fixture-files/wp-admin/index.php', '<?php echo "admin";');
 $payloadZip = new ZipArchive();
-if ($payloadZip->open($root . '/site-files.zip', ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) throw new RuntimeException('Could not create nested site files archive.');
+if ($payloadZip->open($root . '/.ua-backup-private/site-files.zip', ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) throw new RuntimeException('Could not create nested site files archive.');
 $payloadZip->addFile($root . '/fixture-files/wp-config.php', 'wp-config.php');
 $payloadZip->addFile($root . '/fixture-files/index.php', 'index.php');
 $payloadZip->addFile($root . '/fixture-files/wp-admin/index.php', 'wp-admin/index.php');
@@ -115,7 +116,7 @@ try {
     ]);
     if (strpos($finished, 'Сайт відновлено') === false) throw new RuntimeException('Installer finish stage failed: ' . strip_tags($finished));
     if (!is_file($root . '/index.php') || !is_file($root . '/wp-admin/index.php')) throw new RuntimeException('Site files were not restored.');
-    if (is_file($root . '/installer.php') || is_file($root . '/database.sql') || is_file($root . '/site-files.zip') || is_dir($root . '/site-files')) throw new RuntimeException('Installer did not clean temporary files.');
+    if (is_file($root . '/installer.php') || is_dir($root . '/.ua-backup-private') || is_file($root . '/database.sql') || is_file($root . '/site-files.zip') || is_dir($root . '/site-files')) throw new RuntimeException('Installer did not clean temporary files.');
     $restoredConfig = file_get_contents($root . '/wp-config.php');
     foreach (["'" . $dbName . "'", "'" . $dbUser . "'", "'" . $dbPass . "'", "'" . $host . "'", "'site_'"] as $needle) {
         if (strpos($restoredConfig, $needle) === false) throw new RuntimeException('wp-config.php was not updated: missing ' . $needle);
