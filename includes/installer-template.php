@@ -11,6 +11,8 @@ $manifest = is_array($manifest) ? $manifest : [];
 $message = '';
 $error = '';
 $tokenHash = isset($manifest['installer_token_hash']) ? (string) $manifest['installer_token_hash'] : '';
+$installerToken = isset($manifest['installer_token']) ? (string) $manifest['installer_token'] : '';
+if ($installerToken !== '' && $tokenHash !== '' && !hash_equals($tokenHash, hash('sha256', $installerToken))) $installerToken = '';
 if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['uab_progress'])) {
     $progressToken = (string) ($_GET['token'] ?? '');
     if (!$tokenHash || !hash_equals($tokenHash, hash('sha256', $progressToken))) {
@@ -268,7 +270,7 @@ function uab_cleanup($base, $token) {
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
         $token = (string) ($_POST['installer_token'] ?? '');
-        if (!$tokenHash || !hash_equals($tokenHash, hash('sha256', $token))) uab_stop('Неправильний ключ інсталятора. Візьміть ключ у повідомленні після створення бекапа.');
+        if (!$tokenHash || $installerToken === '' || !hash_equals($tokenHash, hash('sha256', $token)) || !hash_equals($tokenHash, hash('sha256', $installerToken))) uab_stop('Не вдалося автоматично перевірити службові дані архіву. Переконайтеся, що розпаковано повний ZIP UA Backup.');
         $tokenOk = true;
         $action = (string) ($_POST['uab_action'] ?? '');
         if ($action === 'test' || $action === 'import') {
@@ -441,7 +443,7 @@ if ($stage === 'admins' && isset($_SESSION['uab_db'])) {
 <div style="height:18px;background:#dbe3ee;border-radius:20px;overflow:hidden"><div id="uab-restore-bar" style="height:100%;width:0;background:#1769d2;transition:width .25s"></div></div>
 <p id="uab-restore-label" class="hint">Підготовка відновлення...</p></div>
 <form method="post">
-<label>Одноразовий ключ інсталятора</label><input type="password" name="installer_token" required autocomplete="off" placeholder="Вставте ключ із повідомлення після створення бекапа">
+<input type="hidden" name="installer_token" value="<?php echo uab_h($installerToken); ?>">
 <?php if ($stage !== 'admins'): ?>
 <h2>Підключення до бази даних</h2><p class="hint">Спочатку перевіряється підключення. Відновлення дозволене лише в порожню базу даних, щоб не пошкодити наявний сайт.</p>
 <div class="grid"><div><label>Хост БД</label><input name="db_host" value="<?php echo uab_h($dbForm['host']); ?>" required></div><div><label>Назва БД</label><input name="db_name" value="<?php echo uab_h($dbForm['name']); ?>" required></div><div><label>Користувач БД</label><input name="db_user" value="<?php echo uab_h($dbForm['user']); ?>" required></div><div><label>Пароль БД</label><input type="password" name="db_pass" value="<?php echo uab_h($dbForm['pass']); ?>"></div><div><label>Префікс таблиць</label><input name="db_prefix" value="<?php echo uab_h($dbForm['prefix']); ?>" required></div><div><label>Нова адреса сайту</label><input name="site_url" value="<?php echo uab_h($dbForm['url']); ?>" placeholder="https://example.com" required></div></div>
