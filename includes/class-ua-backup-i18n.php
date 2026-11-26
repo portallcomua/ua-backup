@@ -3,7 +3,7 @@ defined('ABSPATH') || exit;
 
 final class UA_Backup_I18n {
     private static function language(): string {
-        $locale = function_exists('determine_locale') ? determine_locale() : get_locale();
+        $locale = get_locale();
         $locale = strtolower(str_replace('_', '-', (string) $locale));
         $language = substr($locale, 0, 2);
         return in_array($language, ['uk', 'pl', 'de'], true) ? $language : 'en';
