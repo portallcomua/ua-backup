@@ -421,7 +421,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $dbForm = $_SESSION['uab_db'] ?? [
-    'host' => 'localhost', 'name' => '', 'user' => '', 'pass' => '',
+    'host' => 'localhost', 'name' => '', 'user' => 'root', 'pass' => '',
     'prefix' => (string) ($manifest['table_prefix'] ?? 'wp_'), 'url' => '',
 ];
 $adminList = [];
