@@ -17,6 +17,7 @@ final class UA_Backup_I18n {
             'stage_zip' => ['uk' => 'Перевірка цілісності ZIP-архіву', 'en' => 'Verifying ZIP archive integrity', 'pl' => 'Sprawdzanie integralności archiwum ZIP', 'de' => 'ZIP-Archiv wird auf Integrität geprüft'],
             'backup_created' => ['uk' => 'Бекап успішно створено.', 'en' => 'Backup created successfully.', 'pl' => 'Kopia zapasowa została utworzona.', 'de' => 'Backup erfolgreich erstellt.'],
             'error_prefix' => ['uk' => 'Помилка:', 'en' => 'Error:', 'pl' => 'Błąd:', 'de' => 'Fehler:'],
+            'author' => ['uk' => 'Автор:', 'en' => 'Author:', 'pl' => 'Autor:', 'de' => 'Autor:'],
             'page_title' => ['uk' => 'UA Backup', 'en' => 'UA Backup', 'pl' => 'UA Backup', 'de' => 'UA Backup'],
             'version' => ['uk' => 'Версія', 'en' => 'Version', 'pl' => 'Wersja', 'de' => 'Version'],
             'description' => ['uk' => 'Повна резервна копія WordPress: файли сайту та база даних в одному ZIP-архіві.', 'en' => 'Full WordPress backup: website files and database in one ZIP archive.', 'pl' => 'Pełna kopia zapasowa WordPress: pliki witryny i baza danych w jednym archiwum ZIP.', 'de' => 'Vollständiges WordPress-Backup: Website-Dateien und Datenbank in einem ZIP-Archiv.'],
