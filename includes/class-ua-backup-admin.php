@@ -82,7 +82,8 @@ class UA_Backup_Admin {
                         if(data.success&&data.data){
                             bar.style.width=(data.data.percent||0)+'%';
                             label.textContent=(data.data.percent||0)+'% — '+(data.data.message||'');
-                            if(data.data.percent===100){polling=false;return;}
+                            // Не зупиняємо опитування на 100%: це може бути залишок попереднього запуску.
+                            // Зупинка відбувається лише після відповіді самого запиту створення бекапа.
                         }
                     }catch(e){}
                     await new Promise(resolve=>setTimeout(resolve,700));
@@ -122,6 +123,7 @@ class UA_Backup_Admin {
         check_ajax_referer('uab_ajax', 'nonce');
         if (!current_user_can('manage_options')) wp_send_json_error(['message' => 'Недостатньо прав.'], 403);
         try {
+            UA_Backup_Engine::reset_progress();
             $result = UA_Backup_Engine::create_backup();
             $message = 'Бекап створено: ' . $result['name'];
             set_transient('uab_last_result_' . get_current_user_id(), $message, 10 * MINUTE_IN_SECONDS);
