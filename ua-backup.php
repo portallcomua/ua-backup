@@ -3,7 +3,7 @@
  * Plugin Name: UA Backup
  * Plugin URI: https://uaserver.pp.ua
  * Description: Просте повне резервне копіювання та перенесення WordPress-сайтів.
- * Version: 2.0.0
+ * Version: 2.1.0
  * Author: UAServer
  * Author URI: https://uaserver.pp.ua
  * License: GPLv2 or later
@@ -11,7 +11,7 @@
  */
 defined('ABSPATH') || exit;
 
-define('UAB_VERSION', '2.0.0');
+define('UAB_VERSION', '2.1.0');
 define('UAB_FILE', __FILE__);
 define('UAB_DIR', plugin_dir_path(__FILE__));
 define('UAB_URL', plugin_dir_url(__FILE__));
@@ -29,9 +29,12 @@ register_activation_hook(__FILE__, static function () {
         wp_mkdir_p($dir);
     }
     if (is_dir($dir) && !file_exists($dir . '/.htaccess')) {
-        file_put_contents($dir . '/.htaccess', "Deny from all\n");
+        file_put_contents($dir . '/.htaccess', "<IfModule mod_authz_core.c>\nRequire all denied\n</IfModule>\n<IfModule !mod_authz_core.c>\nDeny from all\n</IfModule>\n");
     }
     if (is_dir($dir) && !file_exists($dir . '/index.php')) {
-        file_put_contents($dir . '/index.php', "<?php // Silence is golden.\n");
+        file_put_contents($dir . '/index.php', "<?php http_response_code(404); exit;\n");
+    }
+    if (is_dir($dir) && !file_exists($dir . '/web.config')) {
+        file_put_contents($dir . '/web.config', "<?xml version=\"1.0\" encoding=\"UTF-8\"?><configuration><system.webServer><security><authorization><remove users=\"*\" roles=\"\" verbs=\"\"/><add accessType=\"Deny\" users=\"*\"/></authorization></security></system.webServer></configuration>");
     }
 });
