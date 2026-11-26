@@ -49,7 +49,7 @@ class UA_Backup_Admin {
             <section id="uab-install" style="background:#f6f7f7;border-left:4px solid #2271b1;padding:16px 22px;margin:20px 0">
                 <h2>Встановлення на новому хостингу</h2>
                 <ol><li>Створіть резервну копію та скачайте ZIP-архів нижче.</li><li>Завантажте архів у кореневу папку нового сайту та розпакуйте його.</li><li>Відкрийте <code>https://ваш-домен/installer.php</code>.</li><li>Заповніть параметри бази даних, перевірте підключення та завершіть встановлення.</li></ol>
-                <p><strong>Збережіть одноразовий ключ інсталятора з повідомлення після створення бекапа. Після успішного перенесення інсталятор сам видалить службові файли.</strong></p>
+                <p><strong>Інсталятор автоматично перевіряє службові дані всередині ZIP-архіву. Після успішного перенесення він сам видалить службові файли.</strong></p>
             </section>
             <h2>Резервні копії</h2>
             <table class="widefat striped"><thead><tr><th>Архів</th><th>Дата</th><th>Розмір</th><th>Дії</th></tr></thead><tbody>
@@ -123,7 +123,7 @@ class UA_Backup_Admin {
         if (!current_user_can('manage_options')) wp_send_json_error(['message' => 'Недостатньо прав.'], 403);
         try {
             $result = UA_Backup_Engine::create_backup();
-            $message = 'Бекап створено: ' . $result['name'] . ' | Ключ інсталятора: ' . $result['installer_token'];
+            $message = 'Бекап створено: ' . $result['name'];
             set_transient('uab_last_result_' . get_current_user_id(), $message, 10 * MINUTE_IN_SECONDS);
             wp_send_json_success(['message' => 'Бекап успішно створено.', 'redirect' => add_query_arg('uab_done', '1', admin_url('tools.php?page=ua-backup'))]);
         } catch (Throwable $e) {
@@ -133,7 +133,7 @@ class UA_Backup_Admin {
     public function create(): void {
         if (!current_user_can('manage_options')) wp_die('Недостатньо прав.');
         check_admin_referer('uab_create');
-        try { $result=UA_Backup_Engine::create_backup(); $message='Бекап створено: '.$result['name'].' | Ключ інсталятора: '.$result['installer_token']; }
+        try { $result=UA_Backup_Engine::create_backup(); $message='Бекап створено: '.$result['name']; }
         catch (Throwable $e) { $message='Помилка створення: '.$e->getMessage(); }
         set_transient('uab_last_result_' . get_current_user_id(), $message, 10 * MINUTE_IN_SECONDS);
         wp_safe_redirect(add_query_arg('uab_done', '1', admin_url('tools.php?page=ua-backup'))); exit;
