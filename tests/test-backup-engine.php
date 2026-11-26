@@ -40,10 +40,18 @@ $archive = UA_Backup_Engine::file_path($result['name']);
 if (!$archive || !is_file($archive)) throw new RuntimeException('Backup archive was not created.');
 $zip = new ZipArchive();
 if ($zip->open($archive, ZipArchive::CHECKCONS) !== true) throw new RuntimeException('Backup ZIP is invalid.');
-$required = ['ua-backup.json', 'database.sql', 'installer.php', 'site-files/index.php', 'site-files/wp-admin/test.txt'];
+$required = ['ua-backup.json', 'database.sql', 'installer.php', 'site-files.zip'];
 foreach ($required as $entry) {
     if ($zip->locateName($entry) === false) throw new RuntimeException('Missing ZIP entry: ' . $entry);
 }
+$payloadBytes = $zip->getFromName('site-files.zip');
+$payloadPath = tempnam(sys_get_temp_dir(), 'uab-payload-test');
+file_put_contents($payloadPath, $payloadBytes);
+$payload = new ZipArchive();
+if ($payload->open($payloadPath, ZipArchive::CHECKCONS) !== true) throw new RuntimeException('Nested site files ZIP is invalid.');
+if ($payload->locateName('index.php') === false || $payload->locateName('wp-admin/test.txt') === false) throw new RuntimeException('Nested site files ZIP is incomplete.');
+$payload->close();
+unlink($payloadPath);
 $manifest = json_decode($zip->getFromName('ua-backup.json'), true);
 if (empty($manifest['installer_token_hash']) || empty($manifest['table_prefix'])) throw new RuntimeException('Manifest is incomplete.');
 $sql = $zip->getFromName('database.sql');
