@@ -11,6 +11,7 @@ final class UA_Backup_Updater {
         add_filter('plugins_api', [$this, 'plugin_information'], 20, 3);
         add_filter('upgrader_source_selection', [$this, 'fix_package_directory'], 10, 4);
         add_filter('plugin_row_meta', [$this, 'plugin_row_meta'], 10, 2);
+        add_filter('auto_update_plugin', [$this, 'enable_automatic_updates'], 10, 2);
     }
 
     private function remote_version_data(): array {
@@ -89,6 +90,12 @@ final class UA_Backup_Updater {
         if (is_dir($target)) return new WP_Error('uab_update_folder_exists', 'UA Backup update package folder already exists. Please retry the update.');
         if (!@rename(untrailingslashit($source), $target)) return new WP_Error('uab_update_folder_rename', 'Could not prepare the UA Backup update package.');
         return trailingslashit($target);
+    }
+
+
+    public function enable_automatic_updates($update, $item) {
+        if (is_object($item) && !empty($item->plugin) && $item->plugin === plugin_basename(UAB_FILE)) return true;
+        return $update;
     }
 
     public function plugin_row_meta($links, $file) {
