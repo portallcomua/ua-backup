@@ -274,10 +274,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $oldName = (string) $row[0];
                         if (strpos($oldName, $oldPrefix) === 0) {
                             $newName = $db['prefix'] . substr($oldName, strlen($oldPrefix));
-                            $renames[] = 'RENAME TABLE ' . uab_ident($oldName) . ' TO ' . uab_ident($newName);
+                            $renames[] = uab_ident($oldName) . ' TO ' . uab_ident($newName);
                         }
                     }
-                    foreach ($renames as $sql) if (!$mysqli->query($sql)) uab_stop('Не вдалося змінити префікс таблиць: ' . $mysqli->error);
+                    if ($renames && !$mysqli->query('RENAME TABLE ' . implode(', ', $renames))) uab_stop('Не вдалося змінити префікс таблиць: ' . $mysqli->error);
                     $metaTable = uab_ident($db['prefix'] . 'usermeta');
                     $oldPrefixEsc = $mysqli->real_escape_string($oldPrefix);
                     $newPrefixEsc = $mysqli->real_escape_string($db['prefix']);
