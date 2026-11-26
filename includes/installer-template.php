@@ -181,7 +181,7 @@ function uab_update_config($file, $dbName, $dbUser, $dbPass, $dbHost, $prefix) {
     $config = file_get_contents($file);
     $map = ['DB_NAME' => $dbName, 'DB_USER' => $dbUser, 'DB_PASSWORD' => $dbPass, 'DB_HOST' => $dbHost];
     foreach ($map as $key => $value) {
-        $pattern = '/define\\s*\\(\\s*([\\'"])' . preg_quote($key, '/') . '\\1\\s*,.*?\\)\\s*;/s';
+        $pattern = "/define\\s*\\(\\s*(['\"])". preg_quote($key, '/') . "\\1\\s*,.*?\\)\\s*;/s";
         $replacement = "define(" . var_export($key, true) . ", " . var_export($value, true) . ");";
         $changed = preg_replace($pattern, $replacement, $config, 1, $replacements);
         if ($replacements < 1) uab_stop('Не вдалося оновити параметр ' . $key . ' у wp-config.php.');
