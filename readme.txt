@@ -4,7 +4,7 @@ Tags: backup, restore, migration, database
 Requires at least: 6.0
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 2.2.0
+Stable tag: 2.2.1
 License: GPLv2 or later
 
 == Description ==
@@ -62,6 +62,11 @@ UA Backup створює повну резервну копію WordPress-сай
 Important: installer must be run only on a new/empty target database. Make an additional copy of the destination hosting files before migration. Do not delete the original backup archive until the restored site has been checked.
 
 == Changelog ==
+
+= 2.2.1 =
+* Clarified that the existing administrator is used by default and password changes are optional.
+* Made creation of an additional administrator explicitly optional.
+* Added show/hide password controls to administrator password fields.
 
 = 2.2.0 =
 * Fixed progress reporting with a unique run ID; 100% appears only after the ZIP is saved and verified.
