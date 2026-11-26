@@ -44,7 +44,7 @@ class UA_Backup_Admin {
             <section id="uab-install" style="background:#f6f7f7;border-left:4px solid #2271b1;padding:16px 22px;margin:20px 0">
                 <h2>Встановлення на новому хостингу</h2>
                 <ol><li>Створіть резервну копію та скачайте ZIP-архів нижче.</li><li>Завантажте архів у кореневу папку нового сайту та розпакуйте його.</li><li>Відкрийте <code>https://ваш-домен/installer.php</code>.</li><li>Заповніть параметри бази даних, перевірте підключення та завершіть встановлення.</li></ol>
-                <p><strong>Після завершення обов'язково видаліть installer.php та службові файли архіву.</strong></p>
+                <p><strong>Збережіть одноразовий ключ інсталятора з повідомлення після створення бекапа. Після успішного перенесення інсталятор сам видалить службові файли.</strong></p>
             </section>
             <h2>Резервні копії</h2>
             <table class="widefat striped"><thead><tr><th>Архів</th><th>Дата</th><th>Розмір</th><th>Дії</th></tr></thead><tbody>
@@ -106,8 +106,7 @@ class UA_Backup_Admin {
                 }
             });
         })();
-        </script>
-        </div><?php
+        </script><?php
     }
     public function progress_ajax(): void {
         check_ajax_referer('uab_ajax', 'nonce');
