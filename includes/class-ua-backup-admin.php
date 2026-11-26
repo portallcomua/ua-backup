@@ -4,6 +4,8 @@ class UA_Backup_Admin {
     public function __construct() {
         add_action('admin_menu', [$this, 'menu']);
         add_action('admin_post_uab_create', [$this, 'create']);
+        add_action('wp_ajax_uab_create_ajax', [$this, 'create_ajax']);
+        add_action('wp_ajax_uab_progress', [$this, 'progress_ajax']);
         add_action('admin_post_uab_download', [$this, 'download']);
         add_action('admin_post_uab_delete', [$this, 'delete']);
     }
@@ -23,10 +25,15 @@ class UA_Backup_Admin {
                 <div style="background:#fff;border:1px solid #dcdcde;border-radius:12px;padding:25px;text-align:center">
                     <div style="font-size:42px">🗄️</div><h2>Створити бекап</h2>
                     <p>Зберегти повну копію сайту разом із базою даних.</p>
-                    <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
-                        <?php wp_nonce_field('uab_create'); ?><input type="hidden" name="action" value="uab_create">
-                        <?php submit_button('Створити бекап', 'primary large', 'submit', false, ['style'=>'font-size:18px;padding:12px 26px;height:auto']); ?>
+                    <form id="uab-create-form">
+                        <input type="hidden" name="action" value="uab_create_ajax">
+                        <input type="hidden" name="nonce" value="<?php echo esc_attr(wp_create_nonce('uab_ajax')); ?>">
+                        <button type="submit" class="button button-primary button-large" id="uab-create-button" style="font-size:18px;padding:12px 26px;height:auto">Створити бекап</button>
                     </form>
+                    <div id="uab-progress" style="display:none;margin-top:18px;text-align:left">
+                        <div style="height:18px;background:#e5e7eb;border-radius:20px;overflow:hidden"><div id="uab-progress-bar" style="height:100%;width:0;background:#2271b1;transition:width .25s"></div></div>
+                        <p id="uab-progress-text" style="margin:8px 0 0">Підготовка...</p>
+                    </div>
                 </div>
                 <div style="background:#fff;border:1px solid #dcdcde;border-radius:12px;padding:25px;text-align:center">
                     <div style="font-size:42px">🚀</div><h2>Встановити сайт</h2>
@@ -50,7 +57,73 @@ class UA_Backup_Admin {
                 <a class="button button-link-delete" onclick="return confirm('Видалити архів?')" href="<?php echo esc_url(wp_nonce_url(admin_url('admin-post.php?action=uab_delete&file=' . rawurlencode($backup['name'])), 'uab_delete_' . $backup['name'])); ?>">Видалити</a>
                 </td></tr><?php endforeach; ?>
             </tbody></table>
+        </div>
+        <script>
+        (function(){
+            const form=document.getElementById('uab-create-form');
+            if(!form)return;
+            const button=document.getElementById('uab-create-button');
+            const panel=document.getElementById('uab-progress');
+            const bar=document.getElementById('uab-progress-bar');
+            const label=document.getElementById('uab-progress-text');
+            const nonce=form.querySelector('[name="nonce"]').value;
+            let polling=true;
+            async function poll(){
+                while(polling){
+                    try{
+                        const body=new URLSearchParams({action:'uab_progress',nonce:nonce});
+                        const response=await fetch(ajaxurl,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:body.toString()});
+                        const data=await response.json();
+                        if(data.success&&data.data){
+                            bar.style.width=(data.data.percent||0)+'%';
+                            label.textContent=(data.data.percent||0)+'% — '+(data.data.message||'');
+                            if(data.data.percent===100){polling=false;return;}
+                        }
+                    }catch(e){}
+                    await new Promise(resolve=>setTimeout(resolve,700));
+                }
+            }
+            form.addEventListener('submit',async function(event){
+                event.preventDefault();
+                if(button.disabled)return;
+                button.disabled=true;button.textContent='Створення...';panel.style.display='block';
+                bar.style.width='1%';label.textContent='Запуск резервного копіювання...';
+                polling=true;poll();
+                try{
+                    const response=await fetch(ajaxurl,{method:'POST',body:new FormData(form)});
+                    const data=await response.json();
+                    polling=false;
+                    if(data.success){
+                        bar.style.width='100%';label.textContent='100% — '+data.data.message;
+                        window.location.href=data.data.redirect;
+                    }else{
+                        label.textContent='Помилка: '+(data.data&&data.data.message?data.data.message:'Не вдалося створити бекап.');
+                        button.disabled=false;button.textContent='Спробувати ще раз';
+                    }
+                }catch(e){
+                    polling=false;label.textContent='Помилка з’єднання. Оновіть сторінку та перевірте список бекапів.';
+                    button.disabled=false;button.textContent='Спробувати ще раз';
+                }
+            });
+        })();
+        </script>
         </div><?php
+    }
+    public function progress_ajax(): void {
+        check_ajax_referer('uab_ajax', 'nonce');
+        if (!current_user_can('manage_options')) wp_send_json_error(['message' => 'Недостатньо прав.'], 403);
+        wp_send_json_success(UA_Backup_Engine::progress());
+    }
+    public function create_ajax(): void {
+        check_ajax_referer('uab_ajax', 'nonce');
+        if (!current_user_can('manage_options')) wp_send_json_error(['message' => 'Недостатньо прав.'], 403);
+        try {
+            $result = UA_Backup_Engine::create_backup();
+            $message = 'Бекап створено: ' . $result['name'] . ' | Ключ інсталятора: ' . $result['installer_token'];
+            wp_send_json_success(['message' => $message, 'redirect' => add_query_arg('uab_notice', rawurlencode($message), admin_url('tools.php?page=ua-backup'))]);
+        } catch (Throwable $e) {
+            wp_send_json_error(['message' => $e->getMessage()], 500);
+        }
     }
     public function create(): void {
         if (!current_user_can('manage_options')) wp_die('Недостатньо прав.');
