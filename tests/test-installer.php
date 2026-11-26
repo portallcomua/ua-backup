@@ -24,7 +24,7 @@ $manifest = [
 file_put_contents($root . '/ua-backup.json', json_encode($manifest));
 file_put_contents($root . '/database.sql', "
 CREATE TABLE wp_options (option_id bigint unsigned NOT NULL AUTO_INCREMENT, option_name varchar(191) NOT NULL, option_value longtext NOT NULL, PRIMARY KEY (option_id), UNIQUE KEY option_name (option_name));
-INSERT INTO wp_options (option_name,option_value) VALUES ('siteurl','https://old.example'),('home','https://old.example'),('widget_test','" . addslashes(serialize(['link' => $oldUrl])) . "');
+INSERT INTO wp_options (option_name,option_value) VALUES ('siteurl','https://old.example'),('home','https://old.example'),('widget_test','" . addslashes(serialize(['link' => $oldUrl])) . "'),('wp_user_roles','a:1:{s:13:" . chr(34) . "administrator" . chr(34) . ";b:1;}');
 CREATE TABLE wp_users (ID bigint unsigned NOT NULL AUTO_INCREMENT, user_login varchar(60) NOT NULL, user_pass varchar(255) NOT NULL, user_nicename varchar(50) NOT NULL, user_email varchar(100) NOT NULL, user_url varchar(100) NOT NULL DEFAULT '', user_registered datetime NOT NULL, user_activation_key varchar(255) NOT NULL DEFAULT '', user_status int NOT NULL DEFAULT 0, display_name varchar(250) NOT NULL, PRIMARY KEY (ID), KEY user_login (user_login));
 INSERT INTO wp_users (ID,user_login,user_pass,user_nicename,user_email,user_registered,display_name) VALUES (1,'admin','" . password_hash('original-password', PASSWORD_BCRYPT) . "','admin','admin@old.example',NOW(),'Admin');
 CREATE TABLE wp_usermeta (umeta_id bigint unsigned NOT NULL AUTO_INCREMENT, user_id bigint unsigned NOT NULL, meta_key varchar(255) DEFAULT NULL, meta_value longtext, PRIMARY KEY (umeta_id), KEY user_id (user_id));
@@ -117,6 +117,8 @@ try {
     if (($value['url'] ?? '') !== $newUrl || ($value['nested']['url'] ?? '') !== $newUrl) throw new RuntimeException('Serialized metadata URL replacement failed.');
     $admin = $mysqli->query("SELECT user_pass FROM site_users WHERE ID=1")->fetch_assoc();
     if (!password_verify('original-password', $admin['user_pass'])) throw new RuntimeException('Existing administrator password was not preserved.');
+    $rolesOption = $mysqli->query("SELECT option_name FROM site_options WHERE option_name='site_user_roles'")->fetch_assoc();
+    if (!$rolesOption) throw new RuntimeException('WordPress roles option key was not migrated to the new prefix.');
     $oldAdminRole = $mysqli->query("SELECT meta_value FROM site_usermeta WHERE user_id=1 AND meta_key='site_capabilities'")->fetch_assoc();
     if (!$oldAdminRole || strpos($oldAdminRole['meta_value'], 'administrator') === false) throw new RuntimeException('Existing administrator capability key was not migrated to the new prefix.');
     $newAdmin = $mysqli->query("SELECT u.ID,m.meta_value FROM site_users u INNER JOIN site_usermeta m ON m.user_id=u.ID WHERE u.user_login='newadmin' AND m.meta_key='site_capabilities'")->fetch_assoc();
