@@ -117,6 +117,8 @@ try {
     if (($value['url'] ?? '') !== $newUrl || ($value['nested']['url'] ?? '') !== $newUrl) throw new RuntimeException('Serialized metadata URL replacement failed.');
     $admin = $mysqli->query("SELECT user_pass FROM site_users WHERE ID=1")->fetch_assoc();
     if (!password_verify('original-password', $admin['user_pass'])) throw new RuntimeException('Existing administrator password was not preserved.');
+    $oldAdminRole = $mysqli->query("SELECT meta_value FROM site_usermeta WHERE user_id=1 AND meta_key='site_capabilities'")->fetch_assoc();
+    if (!$oldAdminRole || strpos($oldAdminRole['meta_value'], 'administrator') === false) throw new RuntimeException('Existing administrator capability key was not migrated to the new prefix.');
     $newAdmin = $mysqli->query("SELECT u.ID,m.meta_value FROM site_users u INNER JOIN site_usermeta m ON m.user_id=u.ID WHERE u.user_login='newadmin' AND m.meta_key='site_capabilities'")->fetch_assoc();
     if (!$newAdmin || strpos($newAdmin['meta_value'], 'administrator') === false) throw new RuntimeException('New administrator was not created with administrator role.');
     $mysqli->close();
