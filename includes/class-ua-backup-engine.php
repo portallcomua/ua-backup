@@ -35,6 +35,7 @@ class UA_Backup_Engine {
         $finalPath = '';
         try {
             $stamp = gmdate('Y-m-d_H-i-s');
+            $installerToken = bin2hex(random_bytes(16));
             $host = sanitize_title((string) parse_url(home_url(), PHP_URL_HOST));
             $filename = 'ua-backup-' . ($host ?: 'wordpress') . '-' . $stamp . '.zip';
             $finalPath = $dir . '/' . $filename;
@@ -55,6 +56,7 @@ class UA_Backup_Engine {
                 'php_version' => PHP_VERSION,
                 'table_prefix' => (string) $GLOBALS['table_prefix'],
                 'archive_format' => 2,
+                'installer_token_hash' => hash('sha256', $installerToken),
             ];
             if (!$zip->addFromString('ua-backup.json', wp_json_encode($manifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE))) throw new RuntimeException('Не вдалося додати опис резервної копії.');
             if (!$zip->addFile($tmpSql, 'database.sql')) throw new RuntimeException('Не вдалося додати базу даних до архіву.');
@@ -80,7 +82,7 @@ class UA_Backup_Engine {
             $check->close();
             if (!$valid || !is_file($tmpZip) || filesize($tmpZip) < 100) throw new RuntimeException('Архів неповний або пошкоджений.');
             if (!@rename($tmpZip, $finalPath)) throw new RuntimeException('Не вдалося зберегти готовий ZIP-архів.');
-            return ['name' => $filename, 'size' => (int) filesize($finalPath), 'path' => $finalPath];
+            return ['name' => $filename, 'size' => (int) filesize($finalPath), 'path' => $finalPath, 'installer_token' => $installerToken];
         } catch (Throwable $e) {
             if ($tmpZip && is_file($tmpZip)) @unlink($tmpZip);
             if ($finalPath && is_file($finalPath)) @unlink($finalPath);
