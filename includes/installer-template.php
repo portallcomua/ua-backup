@@ -406,7 +406,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     } catch (Throwable $e) {
         $error = $e->getMessage();
-        if (!empty($token)) uab_set_progress($token, 0, 'Помилка: ' . $error);
+        if (!empty($token)) {
+            uab_set_progress($token, 0, 'Помилка: ' . $error);
+            uab_remove_tree(sys_get_temp_dir() . '/uab-files-' . hash('sha256', $token));
+        }
         if (session_status() !== PHP_SESSION_ACTIVE) @session_start();
     }
 }
