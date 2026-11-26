@@ -1,4 +1,4 @@
-# UA Backup 2.1.0
+# UA Backup 2.2.0
 
 Плагін WordPress для створення повного ZIP-бекапа (файли + база даних) і перенесення сайту на інший хостинг.
 
@@ -35,3 +35,12 @@
 5. Перевірте сайт і вхід в адмінку, перш ніж видаляти ZIP бекапа.
 
 **Увага:** не запускайте відновлення в базу з наявними таблицями. Перед перенесенням збережіть резервну копію файлів цільового хостингу.
+
+
+## Version 2.2.0
+
+- Accurate per-run backup progress; 100% is shown only after the archive has been saved.
+- Automatic updates from the GitHub repository.
+- Admin interface in Ukrainian, English, Polish, or German based on the WordPress locale.
+- Author: UAServer — https://uaserver.pp.ua
+- Plugin page: https://uaserver.pp.ua/uabackup
