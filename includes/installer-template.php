@@ -333,7 +333,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             uab_rewrite_urls($mysqli, $db['prefix'], rtrim((string) ($manifest['home_url'] ?? $manifest['site_url'] ?? ''), '/'), $db['url']);
             $mysqli->close();
-            uab_copy_site_files($base . '/site-files', $base);
+            uab_set_progress($token, 79, 'Підготовка файлів сайту');
+            uab_copy_site_files($base . '/site-files', $base, $token);
             uab_set_progress($token, 99, 'Оновлення конфігурації WordPress');
             uab_update_config($base . '/wp-config.php', $db['name'], $db['user'], $db['pass'], $db['host'], $db['prefix']);
             session_start();
