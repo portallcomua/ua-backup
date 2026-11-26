@@ -106,7 +106,7 @@ try {
     if (!is_file($root . '/index.php') || !is_file($root . '/wp-admin/index.php')) throw new RuntimeException('Site files were not restored.');
     if (is_file($root . '/installer.php') || is_file($root . '/database.sql') || is_dir($root . '/site-files')) throw new RuntimeException('Installer did not clean temporary files.');
     $restoredConfig = file_get_contents($root . '/wp-config.php');
-    foreach (["'testdb'", "'root'", "'127.0.0.1'", "'wp_'"] as $needle) {
+    foreach (["'" . $dbName . "'", "'" . $dbUser . "'", "'" . $dbPass . "'", "'" . $host . "'", "'wp_'"] as $needle) {
         if (strpos($restoredConfig, $needle) === false) throw new RuntimeException('wp-config.php was not updated: missing ' . $needle);
     }
     $mysqli = new mysqli($host, $dbUser, $dbPass, $dbName);
