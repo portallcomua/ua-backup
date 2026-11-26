@@ -336,5 +336,5 @@ if ($stage === 'admins' && isset($_SESSION['uab_db'])) {
 <h3>Або створити нового адміністратора</h3><label>Новий логін</label><input name="new_admin_login"><label>Новий пароль (мінімум 8 символів)</label><input type="password" name="new_admin_pass" minlength="8">
 <button class="button" name="uab_action" value="finish" onclick="return confirm('Завершити відновлення сайту?')">Завершити встановлення</button>
 <?php endif; ?></form>
-<?php else: ?><div class="done"><h2>Сайт відновлено</h2><p>Відкрийте сайт або увійдіть до панелі керування.</p><a class="button" href="<?php echo uab_h($_SESSION['uab_done_url'] ?? '/'); ?>">Перейти на сайт</a><a class="button" href="<?php echo uab_h(rtrim((string) ($dbForm['url'] ?? ''), '/') . '/wp-admin/'); ?>">Відкрити адмінку</a></div><?php endif; ?>
+<?php else: ?><div class="done"><h2>Сайт відновлено</h2><p>Відкрийте сайт або увійдіть до панелі керування.</p><a class="button" href="<?php echo uab_h($_SESSION['uab_done_url'] ?? '/'); ?>">Перейти на сайт</a><a class="button" href="<?php echo uab_h(rtrim((string) ($_SESSION['uab_done_url'] ?? ''), '/') . '/wp-admin/'); ?>">Відкрити адмінку</a></div><?php endif; ?>
 </main></body></html>
