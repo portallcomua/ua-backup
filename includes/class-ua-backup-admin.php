@@ -55,7 +55,7 @@ class UA_Backup_Admin {
     public function create(): void {
         if (!current_user_can('manage_options')) wp_die('Недостатньо прав.');
         check_admin_referer('uab_create');
-        try { $result=UA_Backup_Engine::create_backup(); $message='Бекап створено: '.$result['name']; }
+        try { $result=UA_Backup_Engine::create_backup(); $message='Бекап створено: '.$result['name'].' | Ключ інсталятора: '.$result['installer_token']; }
         catch (Throwable $e) { $message='Помилка створення: '.$e->getMessage(); }
         wp_safe_redirect(add_query_arg('uab_notice', rawurlencode($message), admin_url('tools.php?page=ua-backup'))); exit;
     }
