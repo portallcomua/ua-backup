@@ -43,6 +43,7 @@ class UA_Backup_Engine {
         }
         self::update_progress(1, 'Підготовка резервної копії');
         $tmpSql = '';
+        $tmpFilesZip = '';
         $tmpZip = '';
         $finalPath = '';
         try {
@@ -69,12 +70,16 @@ class UA_Backup_Engine {
                 'wp_version' => get_bloginfo('version'),
                 'php_version' => PHP_VERSION,
                 'table_prefix' => (string) $GLOBALS['table_prefix'],
-                'archive_format' => 2,
+                'archive_format' => 3,
                 'installer_token_hash' => hash('sha256', $installerToken),
             ];
             if (!$zip->addFromString('ua-backup.json', wp_json_encode($manifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE))) throw new RuntimeException('Не вдалося додати опис резервної копії.');
             if (!$zip->addFile($tmpSql, 'database.sql')) throw new RuntimeException('Не вдалося додати базу даних до архіву.');
             if (!$zip->addFromString('installer.php', self::installer_code())) throw new RuntimeException('Не вдалося додати інсталятор до архіву.');
+            $tmpFilesZip = wp_tempnam('ua-backup-files');
+            if (!$tmpFilesZip) throw new RuntimeException('Не вдалося створити тимчасовий архів файлів.');
+            $filesZip = new ZipArchive();
+            if ($filesZip->open($tmpFilesZip, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) throw new RuntimeException('Не вдалося створити архів файлів сайту.');
 
             $root = realpath(untrailingslashit(ABSPATH));
             if (!$root || !is_dir($root)) throw new RuntimeException('Не вдалося визначити кореневу папку WordPress.');
@@ -96,18 +101,20 @@ class UA_Backup_Engine {
                 if ($backupReal && ($real === $backupReal || strpos($real, $backupReal . DIRECTORY_SEPARATOR) === 0)) continue;
                 $relative = ltrim(str_replace('\\', '/', substr($real, strlen($root))), '/');
                 if ($relative === '.maintenance' || $relative === '') continue;
-                if (!$zip->addFile($real, 'site-files/' . $relative)) throw new RuntimeException('Не вдалося додати файл до архіву: ' . $relative);
+                if (!$filesZip->addFile($real, $relative)) throw new RuntimeException('Не вдалося додати файл до архіву: ' . $relative);
                 $processedFiles++;
                 if ($processedFiles % 25 === 0 || $processedFiles === $totalFiles) {
                     $percent = $totalFiles > 0 ? 18 + (int) floor(72 * $processedFiles / $totalFiles) : 90;
                     self::update_progress($percent, 'Архівація файлів: ' . $processedFiles . ' із ' . $totalFiles);
                 }
             }
+            if (!$filesZip->close()) throw new RuntimeException('Не вдалося завершити архів файлів сайту.');
+            if (!$zip->addFile($tmpFilesZip, 'site-files.zip')) throw new RuntimeException('Не вдалося додати архів файлів до резервної копії.');
             self::update_progress(92, 'Перевірка цілісності ZIP-архіву');
             if (!$zip->close()) throw new RuntimeException('Не вдалося завершити ZIP-архів.');
             $check = new ZipArchive();
             if ($check->open($tmpZip, ZipArchive::CHECKCONS) !== true) throw new RuntimeException('Перевірка ZIP-архіву не пройдена.');
-            $valid = $check->locateName('ua-backup.json') !== false && $check->locateName('database.sql') !== false && $check->locateName('installer.php') !== false;
+            $valid = $check->locateName('ua-backup.json') !== false && $check->locateName('database.sql') !== false && $check->locateName('installer.php') !== false && $check->locateName('site-files.zip') !== false;
             $check->close();
             if (!$valid || !is_file($tmpZip) || filesize($tmpZip) < 100) throw new RuntimeException('Архів неповний або пошкоджений.');
             if (!@rename($tmpZip, $finalPath)) throw new RuntimeException('Не вдалося зберегти готовий ZIP-архів.');
@@ -120,6 +127,7 @@ class UA_Backup_Engine {
             throw $e;
         } finally {
             if ($tmpSql && is_file($tmpSql)) @unlink($tmpSql);
+            if ($tmpFilesZip && is_file($tmpFilesZip)) @unlink($tmpFilesZip);
             if (is_resource($lockHandle)) { flock($lockHandle, LOCK_UN); fclose($lockHandle); }
         }
     }
