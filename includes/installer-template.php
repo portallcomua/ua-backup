@@ -363,7 +363,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $selected = (int) ($_POST['admin_id'] ?? 0);
             $newLogin = preg_replace('/[^a-zA-Z0-9_.@-]/', '', trim((string) ($_POST['new_admin_login'] ?? '')));
             $newPass = (string) ($_POST['new_admin_pass'] ?? '');
-            $createNewAdmin = (string) ($_POST['create_new_admin'] ?? '') === '1';
+            $createNewAdmin = !$admins || (string) ($_POST['create_new_admin'] ?? '') === '1';
             if ($createNewAdmin) {
                 if ($newLogin === '' || strlen($newPass) < 8) uab_stop('Для створення нового адміністратора вкажіть логін і пароль не коротший за 8 символів.');
                 $users = uab_ident($db['prefix'] . 'users');
@@ -439,7 +439,7 @@ if ($stage === 'admins' && isset($_SESSION['uab_db'])) {
 ?><!doctype html>
 <html lang="uk"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>UA Backup — встановлення</title>
 <style>
-*{box-sizing:border-box}body{font-family:system-ui,-apple-system,Segoe UI,sans-serif;background:#f3f6fa;margin:0;padding:24px;color:#172033}.box{max-width:720px;margin:25px auto;background:#fff;padding:28px;border-radius:16px;box-shadow:0 8px 35px #15294b12}h1{margin-top:0}label{display:block;font-weight:600;margin:14px 0 6px}input,select{width:100%;padding:12px;border:1px solid #cbd5e1;border-radius:8px;font:inherit}.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.button{display:inline-block;margin-top:20px;padding:13px 20px;border:0;border-radius:8px;background:#1769d2;color:#fff;font-size:16px;font-weight:700;cursor:pointer}.msg,.err{padding:13px;border-radius:8px;margin:15px 0}.msg{background:#e9f7ef;color:#17633a}.err{background:#fff0f0;color:#a11b1b}.hint{color:#64748b;font-size:14px}.admin{padding:12px;border:1px solid #e2e8f0;border-radius:9px;margin:8px 0}.admin input{width:auto}.admin-create{margin-top:22px;padding:16px;border:1px solid #e2e8f0;border-radius:10px}.password-field{display:flex;gap:8px;align-items:center}.password-field input{flex:1;min-width:0}.toggle-password{padding:10px 13px;border:1px solid #cbd5e1;border-radius:8px;background:#f8fafc;color:#172033;font:inherit;cursor:pointer}.done a{display:inline-block;margin:8px 8px 0 0}
+*{box-sizing:border-box}body{font-family:system-ui,-apple-system,Segoe UI,sans-serif;background:#f3f6fa;margin:0;padding:24px;color:#172033}.box{max-width:720px;margin:25px auto;background:#fff;padding:28px;border-radius:16px;box-shadow:0 8px 35px #15294b12}h1{margin-top:0}label{display:block;font-weight:600;margin:14px 0 6px}input,select{width:100%;padding:12px;border:1px solid #cbd5e1;border-radius:8px;font:inherit}.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.button{display:inline-block;margin-top:20px;padding:13px 20px;border:0;border-radius:8px;background:#1769d2;color:#fff;font-size:16px;font-weight:700;cursor:pointer}.msg,.err{padding:13px;border-radius:8px;margin:15px 0}.msg{background:#e9f7ef;color:#17633a}.err{background:#fff0f0;color:#a11b1b}.hint{color:#64748b;font-size:14px}.admin{padding:12px;border:1px solid #e2e8f0;border-radius:9px;margin:8px 0}.admin input{width:auto}.admin-create{margin-top:22px;padding:16px;border:1px solid #e2e8f0;border-radius:10px}.admin-create-heading{display:flex;align-items:center;justify-content:space-between;gap:12px}.plus-toggle{width:38px;height:38px;border:1px solid #cbd5e1;border-radius:8px;background:#f8fafc;color:#172033;font-size:24px;line-height:1;cursor:pointer}.password-field{display:flex;gap:8px;align-items:center}.password-field input{flex:1;min-width:0}.toggle-password{padding:10px 13px;border:1px solid #cbd5e1;border-radius:8px;background:#f8fafc;color:#172033;font:inherit;cursor:pointer}.done a{display:inline-block;margin:8px 8px 0 0}
 @media(max-width:600px){.grid{grid-template-columns:1fr}.box{padding:20px;margin:0}}
 </style></head><body><main class="box"><h1>UA Backup — встановлення сайту</h1>
 <?php if ($message): ?><div class="msg"><?php echo uab_h($message); ?></div><?php endif; ?>
@@ -463,11 +463,12 @@ if ($stage === 'admins' && isset($_SESSION['uab_db'])) {
 <label for="existing_admin_pass">Змінити пароль вибраного адміністратора (необов’язково)</label><div class="password-field"><input id="existing_admin_pass" type="password" name="existing_admin_pass" minlength="8" autocomplete="new-password"><button type="button" class="toggle-password" aria-label="Показати пароль" aria-pressed="false">👁</button></div>
 <?php else: ?><p class="hint">У резервній копії адміністраторів не знайдено. Для входу потрібно створити нового адміністратора.</p><?php endif; ?>
 <div class="admin-create">
-<label class="admin"><input type="checkbox" id="create_new_admin" name="create_new_admin" value="1" <?php echo $adminList ? '' : 'required'; ?>> Створити окремого нового адміністратора</label>
-<p class="hint">Не ставте галочку, якщо хочете користуватися наявним адміністратором. Новий обліковий запис створюється лише за вашим бажанням.</p>
-<div id="new-admin-fields" hidden>
-<label for="new_admin_login">Логін нового адміністратора</label><input id="new_admin_login" name="new_admin_login" autocomplete="off">
-<label for="new_admin_pass">Пароль нового адміністратора (мінімум 8 символів)</label><div class="password-field"><input id="new_admin_pass" type="password" name="new_admin_pass" minlength="8" autocomplete="new-password"><button type="button" class="toggle-password" aria-label="Показати пароль" aria-pressed="false">Показати</button></div>
+<div class="admin-create-heading"><strong>Створити нового адміністратора</strong><button type="button" id="toggle-new-admin" class="plus-toggle" aria-expanded="<?php echo $adminList ? 'false' : 'true'; ?>" aria-controls="new-admin-fields"><?php echo $adminList ? '+' : '−'; ?></button></div>
+<input type="hidden" id="create_new_admin" name="create_new_admin" value="<?php echo $adminList ? '0' : '1'; ?>">
+<div id="new-admin-fields" <?php echo $adminList ? 'hidden' : ''; ?>>
+<p class="hint">Заповніть ці поля лише якщо потрібен окремий обліковий запис адміністратора.</p>
+<label for="new_admin_login">Логін нового адміністратора</label><input id="new_admin_login" name="new_admin_login" autocomplete="off" <?php echo $adminList ? 'disabled' : 'required'; ?>>
+<label for="new_admin_pass">Пароль нового адміністратора (мінімум 8 символів)</label><div class="password-field"><input id="new_admin_pass" type="password" name="new_admin_pass" minlength="8" autocomplete="new-password" <?php echo $adminList ? 'disabled' : 'required'; ?>><button type="button" class="toggle-password" aria-label="Показати пароль" aria-pressed="false">👁</button></div>
 </div></div>
 <button class="button" name="uab_action" value="finish" onclick="return confirm('Завершити відновлення сайту?')">Завершити встановлення</button>
 <?php endif; ?></form>
@@ -479,19 +480,19 @@ if ($stage === 'admins' && isset($_SESSION['uab_db'])) {
  if(!form)return;
  const createToggle=document.getElementById('create_new_admin');
  const newFields=document.getElementById('new-admin-fields');
+ const toggleNewAdmin=document.getElementById('toggle-new-admin');
  const newLogin=document.getElementById('new_admin_login');
  const newPass=document.getElementById('new_admin_pass');
- if(createToggle&&newFields){
-  const updateNewAdminFields=()=>{
-   const enabled=createToggle.checked;
+ if(createToggle&&newFields&&toggleNewAdmin){
+  toggleNewAdmin.addEventListener('click',()=>{
+   const enabled=createToggle.value!=='1';
+   createToggle.value=enabled?'1':'0';
    newFields.hidden=!enabled;
-   if(newLogin)newLogin.disabled=!enabled;
-   if(newPass)newPass.disabled=!enabled;
-   if(newLogin)newLogin.required=enabled;
-   if(newPass)newPass.required=enabled;
-  };
-  createToggle.addEventListener('change',updateNewAdminFields);
-  updateNewAdminFields();
+   toggleNewAdmin.textContent=enabled?'−':'+';
+   toggleNewAdmin.setAttribute('aria-expanded',enabled?'true':'false');
+   if(newLogin){newLogin.disabled=!enabled;newLogin.required=enabled;}
+   if(newPass){newPass.disabled=!enabled;newPass.required=enabled;}
+  });
  }
  form.querySelectorAll('.toggle-password').forEach(button=>{
   button.addEventListener('click',()=>{
