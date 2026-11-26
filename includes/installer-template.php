@@ -294,12 +294,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $stage = 'tested';
                 $message = 'Підключення успішне. База даних порожня та готова до відновлення.';
             } else {
-                if (!is_file($base . '/database.sql')) uab_stop('Не знайдено database.sql. Спочатку розпакуйте повний ZIP-архів.');
+                if (!is_file($databaseFile)) uab_stop('Не знайдено файл бази даних. Спочатку розпакуйте повний ZIP-архів.');
                 $tables = $mysqli->query('SHOW TABLES');
                 if ($tables && $tables->num_rows > 0) uab_stop('База даних не порожня. Зупинено, щоб не перезаписати чужі таблиці.');
                 try {
                     session_write_close();
-                uab_import_sql($mysqli, $base . '/database.sql', $token);
+                uab_import_sql($mysqli, $databaseFile, $token);
                 } catch (Throwable $importError) {
                     $cleanupPrefixes = array_unique([(string) ($manifest['table_prefix'] ?? 'wp_'), $db['prefix']]);
                     $existing = $mysqli->query('SHOW TABLES');
