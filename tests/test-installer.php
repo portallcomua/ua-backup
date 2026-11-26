@@ -21,6 +21,7 @@ $manifest = [
     'site_url' => $oldUrl,
     'table_prefix' => 'wp_',
     'installer_token_hash' => hash('sha256', $token),
+    'installer_token' => $token,
 ];
 file_put_contents($root . '/.ua-backup-private/ua-backup.json', json_encode($manifest));
 file_put_contents($root . '/.ua-backup-private/database.sql', "
