@@ -89,6 +89,26 @@ function uab_replace_recursive($value, $old, $new) {
     if (is_object($value)) { foreach ($value as $k => $v) $value->$k = uab_replace_recursive($v, $old, $new); return $value; }
     return $value;
 }
+function uab_replace_serialized_column($mysqli, $table, $idColumn, $valueColumn, $oldUrl, $newUrl) {
+    $old = $mysqli->real_escape_string($oldUrl);
+    $result = $mysqli->query("SELECT " . $idColumn . ", " . $valueColumn . " FROM " . $table . " WHERE " . $valueColumn . " LIKE '%" . $old . "%'");
+    if (!$result) return;
+    $stmt = $mysqli->prepare("UPDATE " . $table . " SET " . $valueColumn . "=? WHERE " . $idColumn . "=?");
+    if (!$stmt) { $result->free(); return; }
+    while ($row = $result->fetch_assoc()) {
+        $raw = (string) $row[$valueColumn];
+        $value = @unserialize($raw, ['allowed_classes' => false]);
+        if ($value !== false || $raw === 'b:0;') $updated = serialize(uab_replace_recursive($value, $oldUrl, $newUrl));
+        else $updated = str_replace($oldUrl, $newUrl, $raw);
+        if ($updated !== $raw) {
+            $id = (int) $row[$idColumn];
+            $stmt->bind_param('si', $updated, $id);
+            $stmt->execute();
+        }
+    }
+    $stmt->close();
+    $result->free();
+}
 function uab_rewrite_urls($mysqli, $prefix, $oldUrl, $newUrl) {
     if (!$oldUrl || !$newUrl || $oldUrl === $newUrl) return;
     $options = uab_ident($prefix . 'options');
@@ -98,19 +118,8 @@ function uab_rewrite_urls($mysqli, $prefix, $oldUrl, $newUrl) {
     $new = $mysqli->real_escape_string($newUrl);
     $mysqli->query("UPDATE " . $options . " SET option_value='" . $new . "' WHERE option_name IN ('siteurl','home')");
     $mysqli->query("UPDATE " . $posts . " SET post_content=REPLACE(post_content,'" . $old . "','" . $new . "'), guid=REPLACE(guid,'" . $old . "','" . $new . "')");
-    $result = $mysqli->query("SELECT meta_id, meta_value FROM " . $meta . " WHERE meta_value LIKE '%" . $old . "%'");
-    if ($result) {
-        $stmt = $mysqli->prepare("UPDATE " . $meta . " SET meta_value=? WHERE meta_id=?");
-        while ($row = $result->fetch_assoc()) {
-            $raw = $row['meta_value'];
-            $value = @unserialize($raw, ['allowed_classes' => false]);
-            if ($value !== false || $raw === 'b:0;') $updated = serialize(uab_replace_recursive($value, $oldUrl, $newUrl));
-            else $updated = str_replace($oldUrl, $newUrl, $raw);
-            if ($updated !== $raw) { $stmt->bind_param('si', $updated, $row['meta_id']); $stmt->execute(); }
-        }
-        $stmt->close();
-        $result->free();
-    }
+    uab_replace_serialized_column($mysqli, $options, 'option_id', 'option_value', $oldUrl, $newUrl);
+    uab_replace_serialized_column($mysqli, $meta, 'meta_id', 'meta_value', $oldUrl, $newUrl);
 }
 function uab_copy_site_files($source, $target) {
     if (!is_dir($source)) uab_stop('В архіві відсутня папка site-files.');
