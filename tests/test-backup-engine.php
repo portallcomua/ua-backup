@@ -40,11 +40,11 @@ $archive = UA_Backup_Engine::file_path($result['name']);
 if (!$archive || !is_file($archive)) throw new RuntimeException('Backup archive was not created.');
 $zip = new ZipArchive();
 if ($zip->open($archive, ZipArchive::CHECKCONS) !== true) throw new RuntimeException('Backup ZIP is invalid.');
-$required = ['ua-backup.json', 'database.sql', 'installer.php', 'site-files.zip'];
+$required = ['.ua-backup-private/ua-backup.json', '.ua-backup-private/database.sql', 'installer.php', '.ua-backup-private/site-files.zip'];
 foreach ($required as $entry) {
     if ($zip->locateName($entry) === false) throw new RuntimeException('Missing ZIP entry: ' . $entry);
 }
-$payloadBytes = $zip->getFromName('site-files.zip');
+$payloadBytes = $zip->getFromName('.ua-backup-private/site-files.zip');
 $payloadPath = tempnam(sys_get_temp_dir(), 'uab-payload-test');
 file_put_contents($payloadPath, $payloadBytes);
 $payload = new ZipArchive();
@@ -52,9 +52,9 @@ if ($payload->open($payloadPath, ZipArchive::CHECKCONS) !== true) throw new Runt
 if ($payload->locateName('index.php') === false || $payload->locateName('wp-admin/test.txt') === false) throw new RuntimeException('Nested site files ZIP is incomplete.');
 $payload->close();
 unlink($payloadPath);
-$manifest = json_decode($zip->getFromName('ua-backup.json'), true);
+$manifest = json_decode($zip->getFromName('.ua-backup-private/ua-backup.json'), true);
 if (empty($manifest['installer_token_hash']) || empty($manifest['table_prefix'])) throw new RuntimeException('Manifest is incomplete.');
-$sql = $zip->getFromName('database.sql');
+$sql = $zip->getFromName('.ua-backup-private/database.sql');
 if (strpos($sql, 'CREATE TABLE') === false || strpos($sql, 'FOREIGN_KEY_CHECKS=1') === false) throw new RuntimeException('Database export is incomplete.');
 $zip->close();
 if (!UA_Backup_Engine::delete($result['name'])) throw new RuntimeException('Could not delete test archive.');
