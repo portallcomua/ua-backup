@@ -73,8 +73,11 @@ class UA_Backup_Engine {
                 'archive_format' => 3,
                 'installer_token_hash' => hash('sha256', $installerToken),
             ];
-            if (!$zip->addFromString('ua-backup.json', wp_json_encode($manifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE))) throw new RuntimeException('Не вдалося додати опис резервної копії.');
-            if (!$zip->addFile($tmpSql, 'database.sql')) throw new RuntimeException('Не вдалося додати базу даних до архіву.');
+            if (!$zip->addFromString('.ua-backup-private/.htaccess', "<IfModule mod_authz_core.c>\nRequire all denied\n</IfModule>\n<IfModule !mod_authz_core.c>\nDeny from all\n</IfModule>\n")) throw new RuntimeException('Не вдалося захистити службову папку архіву.');
+            if (!$zip->addFromString('.ua-backup-private/index.php', "<?php http_response_code(404); exit;\n")) throw new RuntimeException('Не вдалося додати захист службової папки.');
+            if (!$zip->addFromString('.ua-backup-private/web.config', "<?xml version=\"1.0\" encoding=\"UTF-8\"?><configuration><system.webServer><security><authorization><remove users=\"*\" roles=\"\" verbs=\"\"/><add accessType=\"Deny\" users=\"*\"/></authorization></security></system.webServer></configuration>")) throw new RuntimeException('Не вдалося додати захист службової папки для IIS.');
+            if (!$zip->addFromString('.ua-backup-private/ua-backup.json', wp_json_encode($manifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE))) throw new RuntimeException('Не вдалося додати опис резервної копії.');
+            if (!$zip->addFile($tmpSql, '.ua-backup-private/database.sql')) throw new RuntimeException('Не вдалося додати базу даних до архіву.');
             if (!$zip->addFromString('installer.php', self::installer_code())) throw new RuntimeException('Не вдалося додати інсталятор до архіву.');
             $tmpFilesZip = wp_tempnam('ua-backup-files');
             if (!$tmpFilesZip) throw new RuntimeException('Не вдалося створити тимчасовий архів файлів.');
@@ -109,12 +112,12 @@ class UA_Backup_Engine {
                 }
             }
             if (!$filesZip->close()) throw new RuntimeException('Не вдалося завершити архів файлів сайту.');
-            if (!$zip->addFile($tmpFilesZip, 'site-files.zip')) throw new RuntimeException('Не вдалося додати архів файлів до резервної копії.');
+            if (!$zip->addFile($tmpFilesZip, '.ua-backup-private/site-files.zip')) throw new RuntimeException('Не вдалося додати архів файлів до резервної копії.');
             self::update_progress(92, 'Перевірка цілісності ZIP-архіву');
             if (!$zip->close()) throw new RuntimeException('Не вдалося завершити ZIP-архів.');
             $check = new ZipArchive();
             if ($check->open($tmpZip, ZipArchive::CHECKCONS) !== true) throw new RuntimeException('Перевірка ZIP-архіву не пройдена.');
-            $valid = $check->locateName('ua-backup.json') !== false && $check->locateName('database.sql') !== false && $check->locateName('installer.php') !== false && $check->locateName('site-files.zip') !== false;
+            $valid = $check->locateName('.ua-backup-private/ua-backup.json') !== false && $check->locateName('.ua-backup-private/database.sql') !== false && $check->locateName('installer.php') !== false && $check->locateName('.ua-backup-private/site-files.zip') !== false;
             $check->close();
             if (!$valid || !is_file($tmpZip) || filesize($tmpZip) < 100) throw new RuntimeException('Архів неповний або пошкоджений.');
             if (!@rename($tmpZip, $finalPath)) throw new RuntimeException('Не вдалося зберегти готовий ZIP-архів.');
