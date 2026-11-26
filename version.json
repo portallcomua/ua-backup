@@ -1,0 +1,11 @@
+{
+  "version": "2.2.0",
+  "name": "UA Backup",
+  "slug": "ua-backup",
+  "author": "UAServer",
+  "homepage": "https://uaserver.pp.ua/uabackup",
+  "requires": "6.0",
+  "tested": "6.8",
+  "requires_php": "7.4",
+  "changelog": "2.2.0: Corrected backup progress so 100% appears only after the archive is verified and saved. Added plugin version display, automatic GitHub updates, and Ukrainian, English, Polish and German admin translations."
+}
