@@ -204,7 +204,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if (!is_file($base . '/database.sql')) uab_stop('Не знайдено database.sql. Спочатку розпакуйте повний ZIP-архів.');
                 $tables = $mysqli->query('SHOW TABLES');
                 if ($tables && $tables->num_rows > 0) uab_stop('База даних не порожня. Зупинено, щоб не перезаписати чужі таблиці.');
-                uab_import_sql($mysqli, $base . '/database.sql');
+                try {
+                    uab_import_sql($mysqli, $base . '/database.sql');
+                } catch (Throwable $importError) {
+                    $cleanupPrefixes = array_unique([(string) ($manifest['table_prefix'] ?? 'wp_'), $db['prefix']]);
+                    $existing = $mysqli->query('SHOW TABLES');
+                    if ($existing) {
+                        while ($tableRow = $existing->fetch_array(MYSQLI_NUM)) {
+                            $tableName = (string) $tableRow[0];
+                            foreach ($cleanupPrefixes as $cleanupPrefix) {
+                                if ($cleanupPrefix !== '' && strpos($tableName, $cleanupPrefix) === 0) {
+                                    $mysqli->query('DROP TABLE IF EXISTS ' . uab_ident($tableName));
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    throw $importError;
+                }
                 $oldPrefix = (string) ($manifest['table_prefix'] ?? 'wp_');
                 if ($oldPrefix !== $db['prefix']) {
                     $res = $mysqli->query('SHOW TABLES');
@@ -274,6 +291,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             uab_copy_site_files($base . '/site-files', $base);
             uab_update_config($base . '/wp-config.php', $db['name'], $db['user'], $db['pass'], $db['host'], $db['prefix']);
             unset($_SESSION['uab_db'], $_SESSION['uab_stage']);
+            $_SESSION['uab_done_url'] = $db['url'];
             uab_cleanup($base);
             $stage = 'done';
             $message = 'Готово! Сайт відновлено. Службові файли інсталятора очищено.';
