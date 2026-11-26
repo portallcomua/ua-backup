@@ -1,9 +1,9 @@
 <?php
 /*
  * Plugin Name: UA Backup
- * Plugin URI: https://uaserver.pp.ua
+ * Plugin URI: https://uaserver.pp.ua/uabackup
  * Description: Просте повне резервне копіювання та перенесення WordPress-сайтів.
- * Version: 2.1.0
+ * Version: 2.2.0
  * Author: UAServer
  * Author URI: https://uaserver.pp.ua
  * License: GPLv2 or later
@@ -11,13 +11,17 @@
  */
 defined('ABSPATH') || exit;
 
-define('UAB_VERSION', '2.1.0');
+define('UAB_VERSION', '2.2.0');
 define('UAB_FILE', __FILE__);
 define('UAB_DIR', plugin_dir_path(__FILE__));
 define('UAB_URL', plugin_dir_url(__FILE__));
 
 require_once UAB_DIR . 'includes/class-ua-backup-engine.php';
+require_once UAB_DIR . 'includes/class-ua-backup-i18n.php';
+require_once UAB_DIR . 'includes/class-ua-backup-updater.php';
 require_once UAB_DIR . 'includes/class-ua-backup-admin.php';
+
+new UA_Backup_Updater();
 
 add_action('plugins_loaded', static function () {
     new UA_Backup_Admin();
