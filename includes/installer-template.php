@@ -278,6 +278,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         }
                     }
                     foreach ($renames as $sql) if (!$mysqli->query($sql)) uab_stop('Не вдалося змінити префікс таблиць: ' . $mysqli->error);
+                    $metaTable = uab_ident($db['prefix'] . 'usermeta');
+                    $oldPrefixEsc = $mysqli->real_escape_string($oldPrefix);
+                    $newPrefixEsc = $mysqli->real_escape_string($db['prefix']);
+                    $prefixLength = strlen($oldPrefix);
+                    $metaUpdate = "UPDATE " . $metaTable . " SET meta_key=CONCAT('" . $newPrefixEsc . "',SUBSTRING(meta_key," . ($prefixLength + 1) . ")) WHERE LEFT(meta_key," . $prefixLength . ")='" . $oldPrefixEsc . "'";
+                    if (!$mysqli->query($metaUpdate)) uab_stop('Не вдалося оновити ключі прав користувачів: ' . $mysqli->error);
+                    $optionsTable = uab_ident($db['prefix'] . 'options');
+                    $oldRoles = $mysqli->real_escape_string($oldPrefix . 'user_roles');
+                    $newRoles = $mysqli->real_escape_string($db['prefix'] . 'user_roles');
+                    if (!$mysqli->query("UPDATE " . $optionsTable . " SET option_name='" . $newRoles . "' WHERE option_name='" . $oldRoles . "'")) uab_stop('Не вдалося оновити налаштування ролей: ' . $mysqli->error);
                 }
                 session_start();
                 $_SESSION['uab_db'] = $db;
