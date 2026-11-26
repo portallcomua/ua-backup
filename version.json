@@ -1,5 +1,5 @@
 {
-  "version": "2.2.1",
+  "version": "2.2.2",
   "name": "UA Backup",
   "slug": "ua-backup",
   "author": "UAServer",
@@ -7,5 +7,5 @@
   "requires": "6.0",
   "tested": "6.8",
   "requires_php": "7.4",
-  "changelog": "2.2.1: Clarified restore administrator choices, made creating an additional administrator optional, and added password visibility controls."
+  "changelog": "2.2.2: Made new administrator creation an expandable optional section; existing backup administrator remains the default."
 }
