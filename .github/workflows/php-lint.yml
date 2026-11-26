@@ -9,14 +9,35 @@ on:
 jobs:
   lint:
     runs-on: ubuntu-latest
+    services:
+      mariadb:
+        image: mariadb:11
+        env:
+          MARIADB_ROOT_PASSWORD: root
+          MARIADB_DATABASE: uab_test
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
     steps:
       - uses: actions/checkout@v4
       - name: Set up PHP
         uses: shivammathur/setup-php@v2
         with:
           php-version: '7.4'
+          extensions: curl, mysqli, zip
       - name: Check PHP syntax
         run: |
           find . -type f -name '*.php' -print0 | xargs -0 -n1 php -l
       - name: Test backup archive creation
         run: php tests/test-backup-engine.php
+      - name: Test full installer migration
+        env:
+          UAB_TEST_DB_HOST: 127.0.0.1
+          UAB_TEST_DB_NAME: uab_test
+          UAB_TEST_DB_USER: root
+          UAB_TEST_DB_PASS: root
+        run: php tests/test-installer.php
