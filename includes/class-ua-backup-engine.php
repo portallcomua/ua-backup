@@ -72,6 +72,7 @@ class UA_Backup_Engine {
                 'table_prefix' => (string) $GLOBALS['table_prefix'],
                 'archive_format' => 3,
                 'installer_token_hash' => hash('sha256', $installerToken),
+                'installer_token' => $installerToken,
             ];
             if (!$zip->addFromString('.ua-backup-private/.htaccess', "<IfModule mod_authz_core.c>\nRequire all denied\n</IfModule>\n<IfModule !mod_authz_core.c>\nDeny from all\n</IfModule>\n")) throw new RuntimeException('Не вдалося захистити службову папку архіву.');
             if (!$zip->addFromString('.ua-backup-private/index.php', "<?php http_response_code(404); exit;\n")) throw new RuntimeException('Не вдалося додати захист службової папки.');
