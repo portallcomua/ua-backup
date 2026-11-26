@@ -87,7 +87,7 @@ try {
         'db_name' => $dbName,
         'db_user' => $dbUser,
         'db_pass' => $dbPass,
-        'db_prefix' => 'wp_',
+        'db_prefix' => 'site_',
         'site_url' => $newUrl,
     ];
     $tested = $send($baseUrl, $credentials + ['uab_action' => 'test']);
@@ -99,24 +99,26 @@ try {
         'uab_action' => 'finish',
         'admin_id' => '1',
         'existing_admin_pass' => '',
-        'new_admin_login' => '',
-        'new_admin_pass' => '',
+        'new_admin_login' => 'newadmin',
+        'new_admin_pass' => 'newadmin-password',
     ]);
     if (strpos($finished, 'Сайт відновлено') === false) throw new RuntimeException('Installer finish stage failed: ' . strip_tags($finished));
     if (!is_file($root . '/index.php') || !is_file($root . '/wp-admin/index.php')) throw new RuntimeException('Site files were not restored.');
     if (is_file($root . '/installer.php') || is_file($root . '/database.sql') || is_dir($root . '/site-files')) throw new RuntimeException('Installer did not clean temporary files.');
     $restoredConfig = file_get_contents($root . '/wp-config.php');
-    foreach (["'" . $dbName . "'", "'" . $dbUser . "'", "'" . $dbPass . "'", "'" . $host . "'", "'wp_'"] as $needle) {
+    foreach (["'" . $dbName . "'", "'" . $dbUser . "'", "'" . $dbPass . "'", "'" . $host . "'", "'site_'"] as $needle) {
         if (strpos($restoredConfig, $needle) === false) throw new RuntimeException('wp-config.php was not updated: missing ' . $needle);
     }
     $mysqli = new mysqli($host, $dbUser, $dbPass, $dbName);
-    $options = $mysqli->query("SELECT option_value FROM wp_options WHERE option_name='home'")->fetch_assoc();
+    $options = $mysqli->query("SELECT option_value FROM site_options WHERE option_name='home'")->fetch_assoc();
     if ($options['option_value'] !== $newUrl) throw new RuntimeException('Site URL was not updated in options.');
-    $meta = $mysqli->query("SELECT meta_value FROM wp_postmeta WHERE meta_key='serialized'")->fetch_assoc();
+    $meta = $mysqli->query("SELECT meta_value FROM site_postmeta WHERE meta_key='serialized'")->fetch_assoc();
     $value = unserialize($meta['meta_value']);
     if (($value['url'] ?? '') !== $newUrl || ($value['nested']['url'] ?? '') !== $newUrl) throw new RuntimeException('Serialized metadata URL replacement failed.');
-    $admin = $mysqli->query("SELECT user_pass FROM wp_users WHERE ID=1")->fetch_assoc();
+    $admin = $mysqli->query("SELECT user_pass FROM site_users WHERE ID=1")->fetch_assoc();
     if (!password_verify('original-password', $admin['user_pass'])) throw new RuntimeException('Existing administrator password was not preserved.');
+    $newAdmin = $mysqli->query("SELECT u.ID,m.meta_value FROM site_users u INNER JOIN site_usermeta m ON m.user_id=u.ID WHERE u.user_login='newadmin' AND m.meta_key='site_capabilities'")->fetch_assoc();
+    if (!$newAdmin || strpos($newAdmin['meta_value'], 'administrator') === false) throw new RuntimeException('New administrator was not created with administrator role.');
     $mysqli->close();
     echo "UA Backup installer integration test passed.\n";
 } finally {
