@@ -16,6 +16,17 @@ class UA_Backup_Engine {
         }, $files);
     }
 
+    private static function update_progress($percent, $message): void {
+        $key = 'uab_progress_' . (function_exists('get_current_user_id') ? get_current_user_id() : 0);
+        set_transient($key, ['percent' => max(0, min(100, (int) $percent)), 'message' => (string) $message], 30 * MINUTE_IN_SECONDS);
+    }
+
+    public static function progress(): array {
+        $key = 'uab_progress_' . get_current_user_id();
+        $data = get_transient($key);
+        return is_array($data) ? $data : ['percent' => 0, 'message' => 'Очікування'];
+    }
+
     public static function create_backup(): array {
         if (!class_exists('ZipArchive')) throw new RuntimeException('На сервері не увімкнено PHP ZipArchive.');
         @set_time_limit(0);
@@ -30,6 +41,7 @@ class UA_Backup_Engine {
             if (is_resource($lockHandle)) fclose($lockHandle);
             throw new RuntimeException('Створення іншої резервної копії вже виконується.');
         }
+        self::update_progress(1, 'Підготовка резервної копії');
         $tmpSql = '';
         $tmpZip = '';
         $finalPath = '';
@@ -41,7 +53,9 @@ class UA_Backup_Engine {
             $finalPath = $dir . '/' . $filename;
             $tmpSql = wp_tempnam('ua-backup-db');
             if (!$tmpSql) throw new RuntimeException('Не вдалося створити тимчасовий файл бази.');
+            self::update_progress(5, 'Експорт бази даних');
             self::export_database($tmpSql);
+            self::update_progress(18, 'Базу даних збережено. Підготовка файлів сайту');
 
             $tmpZip = $dir . '/.' . $filename . '.part';
             $zip = new ZipArchive();
@@ -65,7 +79,16 @@ class UA_Backup_Engine {
             $root = realpath(untrailingslashit(ABSPATH));
             if (!$root || !is_dir($root)) throw new RuntimeException('Не вдалося визначити кореневу папку WordPress.');
             $backupReal = realpath($dir);
+            $countIterator = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($root, FilesystemIterator::SKIP_DOTS), RecursiveIteratorIterator::LEAVES_ONLY);
+            $totalFiles = 0;
+            foreach ($countIterator as $countFile) {
+                if ($countFile->isFile() && !$countFile->isLink()) {
+                    $countReal = $countFile->getRealPath();
+                    if ($countReal && (!$backupReal || strpos($countReal, $backupReal . DIRECTORY_SEPARATOR) !== 0)) $totalFiles++;
+                }
+            }
             $iterator = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($root, FilesystemIterator::SKIP_DOTS), RecursiveIteratorIterator::LEAVES_ONLY);
+            $processedFiles = 0;
             foreach ($iterator as $file) {
                 if (!$file->isFile() || $file->isLink()) continue;
                 $real = $file->getRealPath();
@@ -74,7 +97,13 @@ class UA_Backup_Engine {
                 $relative = ltrim(str_replace('\\', '/', substr($real, strlen($root))), '/');
                 if ($relative === '.maintenance' || $relative === '') continue;
                 if (!$zip->addFile($real, 'site-files/' . $relative)) throw new RuntimeException('Не вдалося додати файл до архіву: ' . $relative);
+                $processedFiles++;
+                if ($processedFiles % 25 === 0 || $processedFiles === $totalFiles) {
+                    $percent = $totalFiles > 0 ? 18 + (int) floor(72 * $processedFiles / $totalFiles) : 90;
+                    self::update_progress($percent, 'Архівація файлів: ' . $processedFiles . ' із ' . $totalFiles);
+                }
             }
+            self::update_progress(92, 'Перевірка цілісності ZIP-архіву');
             if (!$zip->close()) throw new RuntimeException('Не вдалося завершити ZIP-архів.');
             $check = new ZipArchive();
             if ($check->open($tmpZip, ZipArchive::CHECKCONS) !== true) throw new RuntimeException('Перевірка ZIP-архіву не пройдена.');
@@ -82,10 +111,12 @@ class UA_Backup_Engine {
             $check->close();
             if (!$valid || !is_file($tmpZip) || filesize($tmpZip) < 100) throw new RuntimeException('Архів неповний або пошкоджений.');
             if (!@rename($tmpZip, $finalPath)) throw new RuntimeException('Не вдалося зберегти готовий ZIP-архів.');
+            self::update_progress(100, 'Бекап успішно створено');
             return ['name' => $filename, 'size' => (int) filesize($finalPath), 'path' => $finalPath, 'installer_token' => $installerToken];
         } catch (Throwable $e) {
             if ($tmpZip && is_file($tmpZip)) @unlink($tmpZip);
             if ($finalPath && is_file($finalPath)) @unlink($finalPath);
+            self::update_progress(0, 'Помилка: ' . $e->getMessage());
             throw $e;
         } finally {
             if ($tmpSql && is_file($tmpSql)) @unlink($tmpSql);
