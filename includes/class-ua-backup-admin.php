@@ -38,6 +38,7 @@ class UA_Backup_Admin {
             'ready' => $tr('ready'),
             'connectionError' => $tr('connection_error'),
             'genericError' => $tr('generic_error'),
+            'errorPrefix' => $tr('error_prefix'),
             'stageDb' => $tr('stage_db'),
             'stageFiles' => $tr('stage_files'),
             'stageFilesCount' => $tr('stage_files_count'),
@@ -89,7 +90,7 @@ class UA_Backup_Admin {
                 <a class="button button-link-delete" onclick="return confirm(<?php echo esc_attr(wp_json_encode($tr('confirm_delete'))); ?>)" href="<?php echo esc_url(wp_nonce_url(admin_url('admin-post.php?action=uab_delete&file=' . rawurlencode($backup['name'])), 'uab_delete_' . $backup['name'])); ?>"><?php echo esc_html($tr('delete')); ?></a>
                 </td></tr><?php endforeach; ?>
             </tbody></table>
-            <p style="margin-top:18px;color:#646970"><?php echo esc_html__('Author:', 'ua-backup'); ?> <a href="https://uaserver.pp.ua" target="_blank" rel="noopener">UAServer</a> · <a href="https://uaserver.pp.ua/uabackup" target="_blank" rel="noopener">uaserver.pp.ua/uabackup</a></p>
+            <p style="margin-top:18px;color:#646970"><?php echo esc_html($tr('author')); ?> <a href="https://uaserver.pp.ua" target="_blank" rel="noopener">UAServer</a> · <a href="https://uaserver.pp.ua/uabackup" target="_blank" rel="noopener">uaserver.pp.ua/uabackup</a></p>
         </div>
         <script>
         (function(){
@@ -152,7 +153,7 @@ class UA_Backup_Admin {
                         bar.style.width='100%';label.textContent='100% — '+i18n.ready;
                         window.setTimeout(function(){window.location.href=data.data.redirect;},1100);
                     }else{
-                        label.textContent='Error: '+(data.data&&data.data.message?data.data.message:i18n.genericError);
+                        label.textContent=i18n.errorPrefix+' '+(data.data&&data.data.message?data.data.message:i18n.genericError);
                         button.disabled=false;button.textContent=i18n.tryAgain;
                     }
                 }catch(e){
