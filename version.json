@@ -1,5 +1,5 @@
 {
-  "version": "2.2.2",
+  "version": "2.2.3",
   "name": "UA Backup",
   "slug": "ua-backup",
   "author": "UAServer",
@@ -7,5 +7,5 @@
   "requires": "6.0",
   "tested": "6.8",
   "requires_php": "7.4",
-  "changelog": "2.2.2: Made new administrator creation an expandable optional section; existing backup administrator remains the default."
+  "changelog": "2.2.3: Starts progress immediately, removes the redundant full file-count scan, avoids recompressing the nested ZIP, shortens ZIP verification, and displays the completed archive immediately."
 }
