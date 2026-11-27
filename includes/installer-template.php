@@ -237,7 +237,7 @@ function uab_update_config($file, $dbName, $dbUser, $dbPass, $dbHost, $prefix, $
         if ($replacements < 1) uab_stop('Не вдалося оновити параметр ' . $key . ' у wp-config.php.');
         $config = $changed;
     }
-    $prefixPattern = '/\\$table_prefix\\s*=\\s*([\\'"])[^\\'"]*\\1\\s*;/';
+    $prefixPattern = '/\\$table_prefix\\s*=\\s*([\'"])[^\'"]*\\1\\s*;/';
     $config = preg_replace($prefixPattern, '$table_prefix = ' . var_export($prefix, true) . ';', $config, 1, $replacements);
     if ($replacements < 1) uab_stop('Не вдалося оновити префікс таблиць у wp-config.php.');
 
