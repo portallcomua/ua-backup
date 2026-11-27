@@ -3,7 +3,7 @@
  * Plugin Name: UA Backup
  * Plugin URI: https://uaserver.pp.ua/uabackup
  * Description: Просте повне резервне копіювання та перенесення WordPress-сайтів.
- * Version: 2.2.2
+ * Version: 2.2.3
  * Author: UAServer
  * Author URI: https://uaserver.pp.ua
  * License: GPLv2 or later
@@ -11,7 +11,7 @@
  */
 defined('ABSPATH') || exit;
 
-define('UAB_VERSION', '2.2.2');
+define('UAB_VERSION', '2.2.3');
 define('UAB_FILE', __FILE__);
 define('UAB_DIR', plugin_dir_path(__FILE__));
 define('UAB_URL', plugin_dir_url(__FILE__));
