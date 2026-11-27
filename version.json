@@ -1,5 +1,5 @@
 {
-  "version": "2.2.4",
+  "version": "2.2.5",
   "name": "UA Backup",
   "slug": "ua-backup",
   "author": "UAServer",
@@ -7,5 +7,5 @@
   "requires": "6.0",
   "tested": "6.8",
   "requires_php": "7.4",
-  "changelog": "2.2.4: Fixes restored sites being redirected to HTTPS on HTTP destinations by updating WP_HOME/WP_SITEURL, disabling FORCE_SSL_ADMIN for HTTP restores, and removing explicit HTTPS redirects from .htaccess while preserving other rewrite rules."
+  "changelog": "2.2.5: Fixes a PHP syntax error in the standalone installer that caused HTTP 500 before the restore screen could load; restores the table prefix correctly when deploying into an empty folder."
 }
