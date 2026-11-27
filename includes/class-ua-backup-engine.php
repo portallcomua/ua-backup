@@ -98,14 +98,6 @@ class UA_Backup_Engine {
             $root = realpath(untrailingslashit(ABSPATH));
             if (!$root || !is_dir($root)) throw new RuntimeException('Не вдалося визначити кореневу папку WordPress.');
             $backupReal = realpath($dir);
-            $countIterator = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($root, FilesystemIterator::SKIP_DOTS), RecursiveIteratorIterator::LEAVES_ONLY);
-            $totalFiles = 0;
-            foreach ($countIterator as $countFile) {
-                if ($countFile->isFile() && !$countFile->isLink()) {
-                    $countReal = $countFile->getRealPath();
-                    if ($countReal && (!$backupReal || strpos($countReal, $backupReal . DIRECTORY_SEPARATOR) !== 0)) $totalFiles++;
-                }
-            }
             $iterator = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($root, FilesystemIterator::SKIP_DOTS), RecursiveIteratorIterator::LEAVES_ONLY);
             $processedFiles = 0;
             foreach ($iterator as $file) {
@@ -117,17 +109,22 @@ class UA_Backup_Engine {
                 if ($relative === '.maintenance' || $relative === '') continue;
                 if (!$filesZip->addFile($real, $relative)) throw new RuntimeException('Не вдалося додати файл до архіву: ' . $relative);
                 $processedFiles++;
-                if ($processedFiles % 25 === 0 || $processedFiles === $totalFiles) {
-                    $percent = $totalFiles > 0 ? 18 + (int) floor(72 * $processedFiles / $totalFiles) : 90;
-                    self::update_progress($percent, 'Архівація файлів: ' . $processedFiles . ' із ' . $totalFiles);
+                if ($processedFiles % 25 === 0) {
+                    // Не скануємо всі файли заздалегідь: це подвоювало обхід великого сайту.
+                    // Показуємо оцінку прогресу та точну кількість уже доданих файлів.
+                    $percent = min(88, 18 + (int) floor(log($processedFiles + 1, 10) * 18));
+                    self::update_progress($percent, 'Архівація файлів: ' . $processedFiles);
                 }
             }
             if (!$filesZip->close()) throw new RuntimeException('Не вдалося завершити архів файлів сайту.');
             if (!$zip->addFile($tmpFilesZip, '.ua-backup-private/site-files.zip')) throw new RuntimeException('Не вдалося додати архів файлів до резервної копії.');
+            // Вкладений ZIP уже стиснений — повторне стискання лише витрачає час CPU.
+            if (method_exists($zip, 'setCompressionName')) $zip->setCompressionName('.ua-backup-private/site-files.zip', ZipArchive::CM_STORE);
             self::update_progress(92, 'Перевірка цілісності ZIP-архіву');
             if (!$zip->close()) throw new RuntimeException('Не вдалося завершити ZIP-архів.');
             $check = new ZipArchive();
-            if ($check->open($tmpZip, ZipArchive::CHECKCONS) !== true) throw new RuntimeException('Перевірка ZIP-архіву не пройдена.');
+            // ZIP уже закритий; перевіряємо відкриття та обов'язкові записи без повного повторного сканування архіву.
+            if ($check->open($tmpZip, ZipArchive::RDONLY) !== true) throw new RuntimeException('Перевірка ZIP-архіву не пройдена.');
             $valid = $check->locateName('.ua-backup-private/ua-backup.json') !== false && $check->locateName('.ua-backup-private/database.sql') !== false && $check->locateName('installer.php') !== false && $check->locateName('.ua-backup-private/site-files.zip') !== false;
             $check->close();
             if (!$valid || !is_file($tmpZip) || filesize($tmpZip) < 100) throw new RuntimeException('Архів неповний або пошкоджений.');
