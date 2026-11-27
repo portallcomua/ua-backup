@@ -4,7 +4,7 @@ defined('ABSPATH') || exit;
 final class UA_Backup_Updater {
     private const VERSION_URL = 'https://raw.githubusercontent.com/portallcomua/ua-backup/main/version.json';
     private const PACKAGE_URL = 'https://codeload.github.com/portallcomua/ua-backup/zip/refs/heads/main';
-    private const CACHE_KEY = 'uab_github_update_data';
+    private const CACHE_KEY = 'uab_github_update_data_224';
 
     public function __construct() {
         add_filter('pre_set_site_transient_update_plugins', [$this, 'inject_update']);
