@@ -104,6 +104,7 @@ class UA_Backup_Admin {
             const i18n=<?php echo wp_json_encode($js); ?>;
             let polling=false;
             let visualPercent=3;
+            let visualTimer=null;
             function translateStage(message){
                 if(!message)return i18n.preparing;
                 if(message.indexOf('Експорт бази даних')===0)return i18n.stageDb;
@@ -144,6 +145,11 @@ class UA_Backup_Admin {
                 const runId=makeRunId();
                 button.disabled=true;button.textContent=i18n.creating;panel.style.display='block';
                 visualPercent=3;bar.style.width='3%';label.textContent=i18n.starting;
+                // Рух індикатора не залежить від відповіді PHP: він працює навіть якщо сервер зайнятий створенням ZIP.
+                if(visualTimer)window.clearInterval(visualTimer);
+                visualTimer=window.setInterval(function(){
+                    if(visualPercent<88){visualPercent=Math.min(88,visualPercent+1);bar.style.width=visualPercent+'%';label.textContent=visualPercent+'% — '+i18n.creating;}
+                },350);
                 polling=true;poll(runId);
                 try{
                     // Даємо браузеру намалювати індикатор до початку важкого AJAX-запиту.
@@ -153,6 +159,7 @@ class UA_Backup_Admin {
                     const response=await fetch(ajaxurl,{method:'POST',body:payload,cache:'no-store'});
                     const data=await response.json();
                     polling=false;
+                    if(visualTimer){window.clearInterval(visualTimer);visualTimer=null;}
                     if(data.success){
                         // 100% відображається лише після успішної відповіді сервера про збережений ZIP.
                         bar.style.width='100%';label.textContent='100% — '+i18n.ready;
@@ -162,7 +169,9 @@ class UA_Backup_Admin {
                         button.disabled=false;button.textContent=i18n.tryAgain;
                     }
                 }catch(e){
-                    polling=false;label.textContent=i18n.connectionError;
+                    polling=false;
+                    if(visualTimer){window.clearInterval(visualTimer);visualTimer=null;}
+                    label.textContent=i18n.connectionError;
                     button.disabled=false;button.textContent=i18n.tryAgain;
                 }
             });
