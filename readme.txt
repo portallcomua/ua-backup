@@ -4,7 +4,7 @@ Tags: backup, restore, migration, database
 Requires at least: 6.0
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 2.2.4
+Stable tag: 2.2.5
 License: GPLv2 or later
 
 == Description ==
@@ -62,6 +62,11 @@ UA Backup створює повну резервну копію WordPress-сай
 Important: installer must be run only on a new/empty target database. Make an additional copy of the destination hosting files before migration. Do not delete the original backup archive until the restored site has been checked.
 
 == Changelog ==
+
+= 2.2.5 =
+* Fixed a PHP syntax error in the standalone installer that caused HTTP 500 before the restore screen loaded.
+* Fixed table-prefix configuration parsing during restoration into an empty folder.
+
 
 = 2.2.4 =
 * Updates WP_HOME and WP_SITEURL constants to the destination URL during restore.
