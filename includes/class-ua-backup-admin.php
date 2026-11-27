@@ -103,6 +103,7 @@ class UA_Backup_Admin {
             const nonce=form.querySelector('[name="nonce"]').value;
             const i18n=<?php echo wp_json_encode($js); ?>;
             let polling=false;
+            let visualPercent=3;
             function translateStage(message){
                 if(!message)return i18n.preparing;
                 if(message.indexOf('Експорт бази даних')===0)return i18n.stageDb;
@@ -126,13 +127,15 @@ class UA_Backup_Admin {
                         const data=await response.json();
                         if(data.success&&data.data&&data.data.run_id===runId){
                             const raw=Math.max(0,Number(data.data.percent)||0);
-                            // Поки запит створення архіву не завершився, ніколи не показуємо 100%.
-                            const percent=Math.min(99,raw);
+                            // Плавна оцінка прогресу; 100% — тільки після завершення створення ZIP.
+                            if(raw>=92) visualPercent=Math.max(visualPercent,94);
+                            else visualPercent=Math.min(88,Math.max(visualPercent+1,raw));
+                            const percent=Math.min(99,visualPercent);
                             bar.style.width=percent+'%';
                             label.textContent=percent+'% — '+(raw>=100?i18n.finishing:translateStage(data.data.message));
                         }
                     }catch(e){}
-                    await new Promise(resolve=>setTimeout(resolve,650));
+                    await new Promise(resolve=>setTimeout(resolve,300));
                 }
             }
             form.addEventListener('submit',async function(event){
@@ -140,9 +143,11 @@ class UA_Backup_Admin {
                 if(button.disabled)return;
                 const runId=makeRunId();
                 button.disabled=true;button.textContent=i18n.creating;panel.style.display='block';
-                bar.style.width='1%';label.textContent=i18n.starting;
+                visualPercent=3;bar.style.width='3%';label.textContent=i18n.starting;
                 polling=true;poll(runId);
                 try{
+                    // Даємо браузеру намалювати індикатор до початку важкого AJAX-запиту.
+                    await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
                     const payload=new FormData(form);
                     payload.set('run_id',runId);
                     const response=await fetch(ajaxurl,{method:'POST',body:payload,cache:'no-store'});
@@ -151,7 +156,7 @@ class UA_Backup_Admin {
                     if(data.success){
                         // 100% відображається лише після успішної відповіді сервера про збережений ZIP.
                         bar.style.width='100%';label.textContent='100% — '+i18n.ready;
-                        window.setTimeout(function(){window.location.href=data.data.redirect;},1100);
+                        requestAnimationFrame(function(){requestAnimationFrame(function(){window.location.replace(data.data.redirect);});});
                     }else{
                         label.textContent=i18n.errorPrefix+' '+(data.data&&data.data.message?data.data.message:i18n.genericError);
                         button.disabled=false;button.textContent=i18n.tryAgain;
