@@ -226,22 +226,59 @@ function uab_copy_site_files($source, $target, $token) {
         }
     }
 }
-function uab_update_config($file, $dbName, $dbUser, $dbPass, $dbHost, $prefix) {
+function uab_update_config($file, $dbName, $dbUser, $dbPass, $dbHost, $prefix, $siteUrl) {
     if (!is_file($file) || !is_writable($file)) uab_stop('Файл wp-config.php відсутній або недоступний для запису.');
     $config = file_get_contents($file);
     $map = ['DB_NAME' => $dbName, 'DB_USER' => $dbUser, 'DB_PASSWORD' => $dbPass, 'DB_HOST' => $dbHost];
     foreach ($map as $key => $value) {
-        $pattern = "/define\\s*\\(\\s*(['\"])". preg_quote($key, '/') . "\\1\\s*,.*?\\)\\s*;/s";
+        $pattern = "/define\\s*\\(\\s*(['\\"])". preg_quote($key, '/') . "\\1\\s*,.*?\\)\\s*;/s";
         $replacement = "define(" . var_export($key, true) . ", " . var_export($value, true) . ");";
         $changed = preg_replace($pattern, $replacement, $config, 1, $replacements);
         if ($replacements < 1) uab_stop('Не вдалося оновити параметр ' . $key . ' у wp-config.php.');
         $config = $changed;
     }
-    $prefixPattern = '/\\$table_prefix\\s*=\\s*([\'"])[^\'"]*\\1\\s*;/';
+    $prefixPattern = '/\\$table_prefix\\s*=\\s*([\\'"])[^\\'"]*\\1\\s*;/';
     $config = preg_replace($prefixPattern, '$table_prefix = ' . var_export($prefix, true) . ';', $config, 1, $replacements);
     if ($replacements < 1) uab_stop('Не вдалося оновити префікс таблиць у wp-config.php.');
+
+    // Явні адреси в wp-config.php мають відповідати новій адресі відновленого сайту.
+    foreach (['WP_HOME', 'WP_SITEURL'] as $constant) {
+        $pattern = "/^[ \\t]*define\\s*\\(\\s*(['\\"])". preg_quote($constant, '/') . "['\\"]\\s*,\\s*(['\\"]).*?\\2\\s*\\)\\s*;/mi";
+        $replacement = "define(" . var_export($constant, true) . ", " . var_export(rtrim($siteUrl, '/'), true) . ");";
+        $config = preg_replace($pattern, $replacement, $config, 1);
+    }
+
+    // На HTTP-адресі локального сервера адміністрування не повинно примусово переходити на HTTPS.
+    if (strtolower((string) parse_url($siteUrl, PHP_URL_SCHEME)) === 'http') {
+        $forceSslPattern = "/^[ \\t]*define\\s*\\(\\s*(['\\"])FORCE_SSL_ADMIN['\\"]\\s*,\\s*(?:true|1)['\\"]?\\s*\\)\\s*;/mi";
+        $config = preg_replace($forceSslPattern, "define('FORCE_SSL_ADMIN', false);", $config, 1);
+    }
+
     $tmp = $file . '.uab-tmp';
     if (file_put_contents($tmp, $config, LOCK_EX) === false || !rename($tmp, $file)) { @unlink($tmp); uab_stop('Не вдалося безпечно зберегти wp-config.php.'); }
+}
+function uab_disable_https_redirect_for_http($base, $siteUrl) {
+    if (strtolower((string) parse_url($siteUrl, PHP_URL_SCHEME)) !== 'http') return;
+    $file = $base . '/.htaccess';
+    if (!is_file($file) || !is_writable($file)) return;
+    $rules = file_get_contents($file);
+    if (!is_string($rules) || $rules === '') return;
+
+    // Видаляємо лише правила, які явно перенаправляють HTTP на HTTPS; решта правил WordPress зберігається.
+    $rules = preg_replace(
+        '/^[ \\t]*RewriteCond[^\\r\\n]*(?:%\\{HTTPS\\}|%\\{HTTP:X-Forwarded-Proto\\})[^\\r\\n]*(?:\\r?\\n[ \\t]*RewriteCond[^\\r\\n]*)*\\r?\\n[ \\t]*RewriteRule[^\\r\\n]*https?:\\/\\/[^\\r\\n]*(?:\\r?\\n)?/im',
+        '',
+        $rules
+    );
+    $rules = preg_replace('/^[ \\t]*RewriteRule[^\\r\\n]*https?:\\/\\/[^\\r\\n]*(?:\\r?\\n)?/im', '', $rules);
+    $rules = preg_replace('/^[ \\t]*Redirect(?:Permanent|Temp|Match)?[ \\t]+(?:30[1278][ \\t]+)?[^\\r\\n]*https?:\\/\\/[^\\r\\n]*(?:\\r?\\n)?/im', '', $rules);
+
+    $tmp = $file . '.uab-tmp';
+    if (file_put_contents($tmp, $rules, LOCK_EX) !== false) {
+        if (!rename($tmp, $file)) @unlink($tmp);
+    } else {
+        @unlink($tmp);
+    }
 }
 function uab_admins($mysqli, $prefix) {
     $users = uab_ident($prefix . 'users');
@@ -405,7 +442,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $restoreFiles = uab_prepare_site_files($base, $token);
             uab_copy_site_files($restoreFiles, $base, $token);
             uab_set_progress($token, 99, 'Оновлення конфігурації WordPress');
-            uab_update_config($base . '/wp-config.php', $db['name'], $db['user'], $db['pass'], $db['host'], $db['prefix']);
+            uab_update_config($base . '/wp-config.php', $db['name'], $db['user'], $db['pass'], $db['host'], $db['prefix'], $db['url']);
+            uab_disable_https_redirect_for_http($base, $db['url']);
             if (session_status() !== PHP_SESSION_ACTIVE) session_start();
             unset($_SESSION['uab_db'], $_SESSION['uab_stage']);
             $_SESSION['uab_done_url'] = $db['url'];
