@@ -266,12 +266,12 @@ function uab_disable_https_redirect_for_http($base, $siteUrl) {
 
     // Видаляємо лише правила, які явно перенаправляють HTTP на HTTPS; решта правил WordPress зберігається.
     $rules = preg_replace(
-        '/^[ \\t]*RewriteCond[^\\r\\n]*(?:%\\{HTTPS\\}|%\\{HTTP:X-Forwarded-Proto\\})[^\\r\\n]*(?:\\r?\\n[ \\t]*RewriteCond[^\\r\\n]*)*\\r?\\n[ \\t]*RewriteRule[^\\r\\n]*https?:\\/\\/[^\\r\\n]*(?:\\r?\\n)?/im',
+        '/^[ \\t]*RewriteCond[^\\r\\n]*(?:%\\{HTTPS\\}|%\\{HTTP:X-Forwarded-Proto\\})[^\\r\\n]*(?:\\r?\\n[ \\t]*RewriteCond[^\\r\\n]*)*\\r?\\n[ \\t]*RewriteRule[^\\r\\n]*https:\\/\\/[^\\r\\n]*(?:\\r?\\n)?/im',
         '',
         $rules
     );
-    $rules = preg_replace('/^[ \\t]*RewriteRule[^\\r\\n]*https?:\\/\\/[^\\r\\n]*(?:\\r?\\n)?/im', '', $rules);
-    $rules = preg_replace('/^[ \\t]*Redirect(?:Permanent|Temp|Match)?[ \\t]+(?:30[1278][ \\t]+)?[^\\r\\n]*https?:\\/\\/[^\\r\\n]*(?:\\r?\\n)?/im', '', $rules);
+    $rules = preg_replace('/^[ \\t]*RewriteRule[^\\r\\n]*https:\\/\\/[^\\r\\n]*(?:\\r?\\n)?/im', '', $rules);
+    $rules = preg_replace('/^[ \\t]*Redirect(?:Permanent|Temp|Match)?[ \\t]+(?:30[1278][ \\t]+)?[^\\r\\n]*https:\\/\\/[^\\r\\n]*(?:\\r?\\n)?/im', '', $rules);
 
     $tmp = $file . '.uab-tmp';
     if (file_put_contents($tmp, $rules, LOCK_EX) !== false) {
